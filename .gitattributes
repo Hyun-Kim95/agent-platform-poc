@@ -1,0 +1,17 @@
+# Kit template — copied to product repo root on /start-setting and sync (if missing).
+
+* text=auto eol=lf
+
+*.md text diff=markdown
+*.mdc text
+*.json text
+*.yml text
+*.yaml text
+*.ps1 text
+*.psm1 text
+*.ts text
+*.tsx text
+*.js text
+*.jsx text
+*.css text
+*.html text

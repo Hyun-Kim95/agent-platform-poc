@@ -1,0 +1,21 @@
+# Kit template — copied to product repo root on /start-setting and sync (if missing).
+# https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{md,mdc,json,yml,yaml}]
+charset = utf-8
+
+# PS 5.1 reads BOM-less .ps1 as ANSI/CP949; non-ASCII literals need a BOM.
+# See docs/agent/encoding.md (kit).
+[*.{ps1,psm1}]
+charset = utf-8-bom
+
+[*.{ts,tsx,js,jsx,css,scss,html,vue,svelte}]
+charset = utf-8

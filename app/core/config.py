@@ -1,0 +1,74 @@
+"""Settings and tenant YAML loading."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import yaml
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT = Path(__file__).resolve().parents[2]
+TENANTS_DIR = ROOT / "configs" / "tenants"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
+    rules_only: bool = False
+    web_search_provider: str = "tavily"
+    web_search_api_key: str = ""
+    run_store_path: str = "data/runs.db"
+    app_version: str = "0.1.0"
+
+
+class TenantConfig(BaseModel):
+    tenant_id: str
+    default_engine: str = "multi_agent"
+    hitl: bool = False
+    timeout_ms: int = 120_000
+    max_iterations: int = 8
+    rules_only: bool = False
+    data_path: str = "samples/mini.csv"
+    extra: Dict[str, Any] = Field(default_factory=dict)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+def load_tenant(tenant_id: str) -> Optional[TenantConfig]:
+    path = TENANTS_DIR / f"{tenant_id}.yaml"
+    if not path.is_file():
+        return None
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    known = {
+        "tenant_id",
+        "default_engine",
+        "hitl",
+        "timeout_ms",
+        "max_iterations",
+        "rules_only",
+        "data_path",
+    }
+    extra = {k: v for k, v in raw.items() if k not in known}
+    return TenantConfig(
+        tenant_id=raw.get("tenant_id", tenant_id),
+        default_engine=raw.get("default_engine", "multi_agent"),
+        hitl=bool(raw.get("hitl", False)),
+        timeout_ms=int(raw.get("timeout_ms", 120_000)),
+        max_iterations=int(raw.get("max_iterations", 8)),
+        rules_only=bool(raw.get("rules_only", False)),
+        data_path=str(raw.get("data_path", "samples/mini.csv")),
+        extra=extra,
+    )
