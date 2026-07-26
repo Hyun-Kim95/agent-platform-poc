@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Union
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -16,7 +18,9 @@ def get_orchestrator(request: Request) -> Orchestrator:
 
 
 @router.post("/hitl/{run_id}", response_model=Envelope)
-def hitl(run_id: str, body: HitlRequest, request: Request):
+def hitl(
+    run_id: str, body: HitlRequest, request: Request
+) -> Union[Envelope, JSONResponse]:
     orch = get_orchestrator(request)
     result = orch.hitl(run_id, body)
     if (

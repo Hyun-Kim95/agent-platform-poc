@@ -41,9 +41,12 @@ class HitlPreview(BaseModel):
     risks: List[str] = Field(default_factory=list)
 
 
+HitlAction = Literal["approve", "revise", "reject"]
+
+
 class HitlView(BaseModel):
     required: bool = True
-    actions: List[str] = Field(
+    actions: List[HitlAction] = Field(
         default_factory=lambda: ["approve", "revise", "reject"]
     )
     preview: Optional[HitlPreview] = None

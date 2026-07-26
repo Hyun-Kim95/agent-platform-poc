@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.models import (
     Citation,
@@ -22,14 +22,13 @@ from app.engines.multi_agent.graph import (
 )
 from app.engines.multi_agent.state import AgentState
 
+RunResult = Tuple[Envelope, Dict[str, Any]]
+
 
 class MultiAgentEngine:
     name = "multi_agent"
 
-    def __init__(self) -> None:
-        self._last_state: Dict[str, Any] = {}
-
-    def run(self, ctx: EngineContext) -> Envelope:
+    def run(self, ctx: EngineContext) -> RunResult:
         initial: AgentState = {
             "query": ctx.query,
             "data_path": ctx.data_path,
@@ -40,12 +39,15 @@ class MultiAgentEngine:
         }
         if not ctx.hitl_enabled:
             final = run_pipeline(initial)
-            self._last_state = self.state_to_dict(final)
-            return self._to_envelope(ctx, final, RunStatus.completed, hitl=None)
+            state_dict = self.state_to_dict(final)
+            return (
+                self._to_envelope(ctx, final, RunStatus.completed, hitl=None),
+                state_dict,
+            )
 
         reviewed = run_until_review(initial)
-        self._last_state = self.state_to_dict(reviewed)
-        return self._waiting_envelope(ctx, reviewed)
+        state_dict = self.state_to_dict(reviewed)
+        return self._waiting_envelope(ctx, reviewed), state_dict
 
     def resume(
         self,
@@ -54,24 +56,30 @@ class MultiAgentEngine:
         decision: str,
         feedback: Optional[str] = None,
         revise_target: Optional[str] = None,
-    ) -> Envelope:
+    ) -> RunResult:
         if decision == "reject":
-            self._last_state = dict(agent_state)
-            return Envelope(
-                trace_id=ctx.trace_id,
-                run_id=ctx.run_id,
-                status=RunStatus.completed,
-                answer="Rejected by human.",
-                citations=[],
-                meta=self._meta(ctx, agent_state.get("route")),
-                error=None,
-                hitl=None,
+            state_dict = dict(agent_state)
+            return (
+                Envelope(
+                    trace_id=ctx.trace_id,
+                    run_id=ctx.run_id,
+                    status=RunStatus.completed,
+                    answer="Rejected by human.",
+                    citations=self._citations(agent_state),
+                    meta=self._meta(ctx, agent_state.get("route")),
+                    error=None,
+                    hitl=None,
+                ),
+                state_dict,
             )
 
         if decision == "approve":
             final = finalize_answer(agent_state)
-            self._last_state = self.state_to_dict(final)
-            return self._to_envelope(ctx, final, RunStatus.completed, hitl=None)
+            state_dict = self.state_to_dict(final)
+            return (
+                self._to_envelope(ctx, final, RunStatus.completed, hitl=None),
+                state_dict,
+            )
 
         if decision == "revise":
             revised = revise_pipeline(
@@ -79,26 +87,32 @@ class MultiAgentEngine:
                 revise_target=revise_target,
                 feedback=feedback or "",
             )
-            self._last_state = self.state_to_dict(revised)
+            state_dict = self.state_to_dict(revised)
             if ctx.hitl_enabled:
-                return self._waiting_envelope(ctx, revised)
+                return self._waiting_envelope(ctx, revised), state_dict
             final = finalize_answer(revised)
-            self._last_state = self.state_to_dict(final)
-            return self._to_envelope(ctx, final, RunStatus.completed, hitl=None)
+            state_dict = self.state_to_dict(final)
+            return (
+                self._to_envelope(ctx, final, RunStatus.completed, hitl=None),
+                state_dict,
+            )
 
-        self._last_state = dict(agent_state)
-        return Envelope(
-            trace_id=ctx.trace_id,
-            run_id=ctx.run_id,
-            status=RunStatus.failed,
-            answer=None,
-            citations=[],
-            meta=self._meta(ctx, agent_state.get("route")),
-            error=ErrorObject(
-                code="INVALID_DECISION",
-                message="Unknown decision={0}".format(decision),
+        state_dict = dict(agent_state)
+        return (
+            Envelope(
+                trace_id=ctx.trace_id,
+                run_id=ctx.run_id,
+                status=RunStatus.failed,
+                answer=None,
+                citations=[],
+                meta=self._meta(ctx, agent_state.get("route")),
+                error=ErrorObject(
+                    code="INVALID_DECISION",
+                    message="Unknown decision={0}".format(decision),
+                ),
+                hitl=None,
             ),
-            hitl=None,
+            state_dict,
         )
 
     def _waiting_envelope(self, ctx: EngineContext, state: AgentState) -> Envelope:
@@ -170,10 +184,6 @@ class MultiAgentEngine:
     @staticmethod
     def state_to_dict(state: AgentState) -> Dict[str, Any]:
         return dict(state)
-
-    @staticmethod
-    def dict_to_state(data: Dict[str, Any]) -> AgentState:
-        return data  # type: ignore[return-value]
 
 
 def _to_citation(raw: Dict[str, Any]) -> Citation:

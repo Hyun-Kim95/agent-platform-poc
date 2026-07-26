@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional, Set, Tuple, Union
 
 from app.core.config import Settings, TenantConfig, get_settings, load_tenant
 from app.core.models import (
@@ -19,6 +19,7 @@ from app.core.models import (
     RunStatus,
 )
 from app.core.registry import EngineRegistry, build_default_registry
+from app.engines.base import ResumableEngine
 from app.store.run_store import RunRecord, RunStore
 
 
@@ -35,6 +36,14 @@ def _parse_utc(ts: str) -> datetime:
     if ts.endswith("Z"):
         ts = ts[:-1] + "+00:00"
     return datetime.fromisoformat(ts)
+
+
+def _unpack_engine_result(
+    raw: Union[Envelope, Tuple[Envelope, Dict[str, Any]]],
+) -> Tuple[Envelope, Dict[str, Any]]:
+    if isinstance(raw, tuple):
+        return raw[0], dict(raw[1] or {})
+    return raw, {}
 
 
 class Orchestrator:
@@ -100,7 +109,7 @@ class Orchestrator:
             rules_only=rules_only,
         )
 
-        result = engine.run(ctx)
+        result, agent_state = _unpack_engine_result(engine.run(ctx))
         latency_ms = int((time.perf_counter() - started) * 1000)
         result.meta.latency_ms = latency_ms
         result.meta.timeout_ms = tenant.timeout_ms
@@ -110,9 +119,8 @@ class Orchestrator:
         result.trace_id = trace_id
         result.run_id = run_id
 
-        # Engine sets _last_state for HITL resume; fall back to envelope reconstruction.
-        agent_state: Dict[str, Any] = getattr(engine, "_last_state", None) or {}
         if not agent_state and result.status == RunStatus.waiting_human:
+            # Prefer engine-returned state; reconstruct only as last resort.
             agent_state = {
                 "query": req.query.strip(),
                 "data_path": tenant.data_path,
@@ -179,7 +187,26 @@ class Orchestrator:
                 * 1000
             )
         except Exception:
-            elapsed_ms = 0
+            return Envelope(
+                trace_id=trace_id,
+                run_id=run_id,
+                status=RunStatus.failed,
+                answer=None,
+                citations=[],
+                meta=Meta(
+                    engine=record.engine,
+                    tenant_id=record.tenant_id,
+                    latency_ms=int((time.perf_counter() - started) * 1000),
+                    timeout_ms=timeout_ms,
+                    thread_id=record.thread_id,
+                    route=gs.get("route"),
+                ),
+                error=ErrorObject(
+                    code="INTERNAL",
+                    message="invalid started_at in run store: {0}".format(started_at),
+                ),
+                hitl=None,
+            )
         if elapsed_ms > timeout_ms:
             result = Envelope(
                 trace_id=trace_id,
@@ -260,7 +287,7 @@ class Orchestrator:
 
         try:
             engine = self.registry.get(record.engine)
-            if engine is None or not hasattr(engine, "resume"):
+            if engine is None or not isinstance(engine, ResumableEngine):
                 return Envelope(
                     trace_id=trace_id,
                     run_id=run_id,
@@ -295,12 +322,14 @@ class Orchestrator:
                 data_path=gs.get("data_path") or "samples/mini.csv",
                 rules_only=bool(gs.get("rules_only", False)),
             )
-            result = engine.resume(
-                ctx,
-                agent_state,
-                decision=body.decision,
-                feedback=body.feedback,
-                revise_target=body.revise_target,
+            result, new_state = _unpack_engine_result(
+                engine.resume(
+                    ctx,
+                    agent_state,
+                    decision=body.decision,
+                    feedback=body.feedback,
+                    revise_target=body.revise_target,
+                )
             )
             result.trace_id = trace_id
             result.run_id = run_id
@@ -310,10 +339,9 @@ class Orchestrator:
             result.meta.thread_id = record.thread_id
             result.meta.engine = record.engine
 
-            new_state = getattr(engine, "_last_state", None) or agent_state
             self._persist_envelope(
                 result,
-                agent_state=new_state,
+                agent_state=new_state or agent_state,
                 started_at=started_at,
                 ctx_extras=gs,
                 created_at=record.created_at,

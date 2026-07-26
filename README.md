@@ -52,6 +52,12 @@ python scripts\demo_hitl.py
 
 `POST /v1/chat` → `waiting_human` → `POST /v1/hitl/{run_id}` 로만 재개한다.
 
+HITL 타임아웃 스모크 (`tenant=demo_timeout`, `timeout_ms=1`):
+
+```powershell
+python scripts\smoke_timeout.py
+```
+
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
 
 ## Known limitations

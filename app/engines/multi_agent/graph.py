@@ -34,12 +34,23 @@ def revise_pipeline(
     feedback: str,
 ) -> AgentState:
     """Re-run search and/or analyst, then reviewer. Keeps query/route."""
+    state = dict(state)
     risks = list(state.get("risks") or [])
     risks.append("human revise: {0}".format(feedback))
-    state["risks"] = risks
 
     citations = list(state.get("citations") or [])
     target = revise_target  # None => both
+    route = state.get("route") or "both"
+
+    # Clamp revise_target to something meaningful for the current route.
+    if target == "search" and route == "data":
+        risks.append("revise_target=search ignored (route=data)")
+        target = "analyst"
+    elif target == "analyst" and route == "web":
+        risks.append("revise_target=analyst ignored (route=web)")
+        target = "search"
+    state["risks"] = risks
+
     if target is None or target == "search":
         citations = [c for c in citations if c.get("type") != "web"]
         state["web_hits"] = []
@@ -50,7 +61,11 @@ def revise_pipeline(
     citations = [c for c in citations if c.get("type") != "no_hit"]
     state["citations"] = citations
 
-    route = state.get("route") or "both"
+    # Surface human feedback into the query used by re-run tools.
+    if feedback and (target is None or target == "search"):
+        base_q = state.get("query") or ""
+        state["query"] = "{0}\n(human revise: {1})".format(base_q, feedback)
+
     if target is None:
         if route in ("web", "both"):
             state = node_search(state)
