@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from typing import Any, Dict
 
 from fastapi import FastAPI
 
 from app.api.chat import router as chat_router
+from app.api.hitl import router as hitl_router
 from app.core.config import get_settings
 from app.core.orchestrator import Orchestrator
 from app.core.registry import build_default_registry
@@ -31,9 +33,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(chat_router)
+app.include_router(hitl_router)
 
 
 @app.get("/health")
-def health() -> dict[str, object]:
+def health() -> Dict[str, Any]:
     settings = get_settings()
     return {"ok": True, "version": settings.app_version}
