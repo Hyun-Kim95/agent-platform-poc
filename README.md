@@ -63,6 +63,7 @@ python scripts\smoke_timeout.py
 ## Known limitations
 
 - v0.1: 프론트 없음, Auth 없음, 풀 RAG 없음
-- `multi_agent`는 순차 파이프라인(웹 mock 또는 Tavily + CSV). HITL은 `/v1/hitl`로 재개
+- `multi_agent`는 LangGraph 파이프라인(웹 mock 또는 Tavily + CSV). HITL은 interrupt + `/v1/hitl`로 재개
+- HITL warm resume은 프로세스 내 MemorySaver; 서버 재시작 후에는 SQLite agent_state cold path
 - 계획/API 상세 문서는 로컬 `docs/` only (gitignore)
 - 로컬 Python 3.9.0에서는 pydantic을 2.10.x로 고정해야 FastAPI `/docs`가 동작한다 (requirements.txt 참고). 가능하면 3.11+ 권장.

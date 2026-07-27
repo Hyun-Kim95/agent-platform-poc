@@ -1,8 +1,10 @@
-"""multi_agent engine with sequential HITL pause/resume."""
+"""multi_agent engine backed by LangGraph (+ cold-resume fallback)."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+
+from langgraph.types import Command
 
 from app.core.models import (
     Citation,
@@ -16,9 +18,9 @@ from app.core.models import (
 )
 from app.engines.multi_agent.graph import (
     finalize_answer,
+    get_compiled_graph,
     revise_pipeline,
-    run_pipeline,
-    run_until_review,
+    thread_config,
 )
 from app.engines.multi_agent.state import AgentState
 
@@ -33,21 +35,25 @@ class MultiAgentEngine:
             "query": ctx.query,
             "data_path": ctx.data_path,
             "rules_only": ctx.rules_only,
+            "hitl_enabled": ctx.hitl_enabled,
             "citations": [],
             "risks": [],
             "ok": True,
         }
-        if not ctx.hitl_enabled:
-            final = run_pipeline(initial)
-            state_dict = self.state_to_dict(final)
-            return (
-                self._to_envelope(ctx, final, RunStatus.completed, hitl=None),
-                state_dict,
-            )
+        graph = get_compiled_graph()
+        cfg = thread_config(ctx.run_id)
+        graph.invoke(initial, cfg)
+        snap = graph.get_state(cfg)
+        values = dict(snap.values or {})
 
-        reviewed = run_until_review(initial)
-        state_dict = self.state_to_dict(reviewed)
-        return self._waiting_envelope(ctx, reviewed), state_dict
+        if snap.next:
+            # paused at human
+            return self._waiting_envelope(ctx, values), values
+
+        return (
+            self._to_envelope(ctx, values, RunStatus.completed, hitl=None),
+            values,
+        )
 
     def resume(
         self,
@@ -57,47 +63,80 @@ class MultiAgentEngine:
         feedback: Optional[str] = None,
         revise_target: Optional[str] = None,
     ) -> RunResult:
+        graph = get_compiled_graph()
+        cfg = thread_config(ctx.run_id)
+        snap = graph.get_state(cfg)
+        payload = {
+            "decision": decision,
+            "feedback": feedback,
+            "revise_target": revise_target,
+        }
+
+        if snap.next:
+            # Warm path: LangGraph interrupt resume
+            graph.invoke(Command(resume=payload), cfg)
+            snap2 = graph.get_state(cfg)
+            values = dict(snap2.values or {})
+            if snap2.next:
+                return self._waiting_envelope(ctx, values), values
+            if decision == "reject" or (
+                values.get("answer") == "Rejected by human."
+            ):
+                return (
+                    Envelope(
+                        trace_id=ctx.trace_id,
+                        run_id=ctx.run_id,
+                        status=RunStatus.completed,
+                        answer=values.get("answer") or "Rejected by human.",
+                        citations=self._citations(values),
+                        meta=self._meta(ctx, values.get("route")),
+                        error=None,
+                        hitl=None,
+                    ),
+                    values,
+                )
+            return (
+                self._to_envelope(ctx, values, RunStatus.completed, hitl=None),
+                values,
+            )
+
+        # Cold path: no checkpoint (process restarted) — same business rules
+        state = dict(agent_state)
         if decision == "reject":
-            state_dict = dict(agent_state)
+            state_dict = state
             return (
                 Envelope(
                     trace_id=ctx.trace_id,
                     run_id=ctx.run_id,
                     status=RunStatus.completed,
                     answer="Rejected by human.",
-                    citations=self._citations(agent_state),
-                    meta=self._meta(ctx, agent_state.get("route")),
+                    citations=self._citations(state),
+                    meta=self._meta(ctx, state.get("route")),
                     error=None,
                     hitl=None,
                 ),
                 state_dict,
             )
-
         if decision == "approve":
-            final = finalize_answer(agent_state)
-            state_dict = self.state_to_dict(final)
+            final = finalize_answer(state)
             return (
                 self._to_envelope(ctx, final, RunStatus.completed, hitl=None),
-                state_dict,
+                dict(final),
             )
-
         if decision == "revise":
             revised = revise_pipeline(
-                agent_state,
+                state,
                 revise_target=revise_target,
                 feedback=feedback or "",
             )
-            state_dict = self.state_to_dict(revised)
             if ctx.hitl_enabled:
-                return self._waiting_envelope(ctx, revised), state_dict
+                return self._waiting_envelope(ctx, revised), dict(revised)
             final = finalize_answer(revised)
-            state_dict = self.state_to_dict(final)
             return (
                 self._to_envelope(ctx, final, RunStatus.completed, hitl=None),
-                state_dict,
+                dict(final),
             )
 
-        state_dict = dict(agent_state)
         return (
             Envelope(
                 trace_id=ctx.trace_id,
@@ -105,27 +144,26 @@ class MultiAgentEngine:
                 status=RunStatus.failed,
                 answer=None,
                 citations=[],
-                meta=self._meta(ctx, agent_state.get("route")),
+                meta=self._meta(ctx, state.get("route")),
                 error=ErrorObject(
                     code="INVALID_DECISION",
                     message="Unknown decision={0}".format(decision),
                 ),
                 hitl=None,
             ),
-            state_dict,
+            state,
         )
 
     def _waiting_envelope(self, ctx: EngineContext, state: AgentState) -> Envelope:
         draft = state.get("draft") or ""
         answer = "(draft)\n{0}".format(draft) if draft else "(draft)"
-        citations = self._citations(state)
         risks = list(state.get("risks") or [])
         return Envelope(
             trace_id=ctx.trace_id,
             run_id=ctx.run_id,
             status=RunStatus.waiting_human,
             answer=answer,
-            citations=citations,
+            citations=self._citations(state),
             meta=self._meta(ctx, state.get("route")),
             error=None,
             hitl=HitlView(
@@ -180,10 +218,6 @@ class MultiAgentEngine:
                 )
             ]
         return citations
-
-    @staticmethod
-    def state_to_dict(state: AgentState) -> Dict[str, Any]:
-        return dict(state)
 
 
 def _to_citation(raw: Dict[str, Any]) -> Citation:

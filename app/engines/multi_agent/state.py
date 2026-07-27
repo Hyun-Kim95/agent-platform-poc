@@ -1,4 +1,4 @@
-"""Shared state for multi_agent sequential pipeline."""
+"""Shared state for multi_agent LangGraph pipeline."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ class AgentState(TypedDict, total=False):
     query: str
     data_path: str
     rules_only: bool
+    hitl_enabled: bool
     route: str
     web_hits: List[Dict[str, Any]]
     data_summary: str
@@ -18,3 +19,4 @@ class AgentState(TypedDict, total=False):
     risks: List[str]
     answer: str
     ok: bool
+    revise_target: Optional[str]
