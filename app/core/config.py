@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     otel_span_processor: Literal["simple", "batch"] = "simple"
     jsonl_log_path: str = "data/runs.jsonl"
 
+    # Feedback (v0.2)
+    feedback_log_path: str = "data/feedback.jsonl"
+
 
 class TenantConfig(BaseModel):
     tenant_id: str

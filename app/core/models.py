@@ -74,6 +74,44 @@ class HitlRequest(BaseModel):
         return self
 
 
+class FeedbackRequest(BaseModel):
+    """POST /v1/feedback — D009."""
+
+    run_id: str = Field(min_length=1, max_length=128)
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=4000)
+    labels: List[str] = Field(default_factory=list, max_length=16)
+
+    @model_validator(mode="after")
+    def normalize_labels(self) -> "FeedbackRequest":
+        cleaned: List[str] = []
+        for raw in self.labels:
+            s = (raw or "").strip()
+            if not s:
+                continue
+            if len(s) > 64:
+                raise ValueError("each label must be at most 64 chars")
+            cleaned.append(s)
+        self.labels = cleaned
+        if self.comment is not None:
+            self.comment = self.comment.strip() or None
+        return self
+
+
+class FeedbackResponse(BaseModel):
+    ok: bool = True
+    feedback_id: str
+    run_id: str
+    stored_at: str
+
+
+class FeedbackErrorBody(BaseModel):
+    """404 body for missing run (not the chat Envelope)."""
+
+    ok: bool = False
+    error: ErrorObject
+
+
 class Envelope(BaseModel):
     """Shared response for /v1/chat and /v1/hitl."""
 

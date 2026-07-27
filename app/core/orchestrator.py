@@ -14,12 +14,15 @@ from app.core.models import (
     Envelope,
     EngineContext,
     ErrorObject,
+    FeedbackRequest,
+    FeedbackResponse,
     HitlRequest,
     Meta,
     RunStatus,
 )
 from app.core.registry import EngineRegistry, build_default_registry
 from app.engines.base import ResumableEngine
+from app.feedback import FeedbackStore
 from app.observability import append_run_event, start_span
 from app.store.run_store import RunRecord, RunStore
 
@@ -53,12 +56,58 @@ class Orchestrator:
         registry: Optional[EngineRegistry] = None,
         store: Optional[RunStore] = None,
         settings: Optional[Settings] = None,
+        feedback_store: Optional[FeedbackStore] = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.registry = registry or build_default_registry()
         self.store = store or RunStore(self.settings.run_store_path)
+        self.feedback_store = feedback_store or FeedbackStore(
+            self.settings.feedback_log_path
+        )
         self._hitl_locks: Set[str] = set()
         self._lock = threading.Lock()
+
+    def submit_feedback(
+        self, body: FeedbackRequest
+    ) -> Union[FeedbackResponse, ErrorObject]:
+        """Return FeedbackResponse or ErrorObject(code=RUN_NOT_FOUND)."""
+        with start_span(
+            "orchestrator.feedback",
+            {"run_id": body.run_id, "rating": body.rating},
+        ):
+            record = self.store.get(body.run_id)
+            if record is None:
+                return ErrorObject(
+                    code="RUN_NOT_FOUND",
+                    message="run_id not found: {0}".format(body.run_id),
+                    details={"run_id": body.run_id},
+                )
+            saved = self.feedback_store.append(
+                run_id=body.run_id,
+                rating=body.rating,
+                comment=body.comment,
+                labels=body.labels,
+            )
+            append_run_event(
+                self.settings.jsonl_log_path,
+                event="feedback",
+                trace_id=new_trace_id(),
+                run_id=body.run_id,
+                engine=record.engine,
+                tenant_id=record.tenant_id,
+                status=record.status,
+                latency_ms=0,
+                extra={
+                    "feedback_id": saved["feedback_id"],
+                    "rating": body.rating,
+                },
+            )
+            return FeedbackResponse(
+                ok=True,
+                feedback_id=saved["feedback_id"],
+                run_id=body.run_id,
+                stored_at=saved["stored_at"],
+            )
 
     def _log_envelope(self, event: str, result: Envelope) -> None:
         err = result.error.code if result.error else None

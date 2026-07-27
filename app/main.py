@@ -8,10 +8,12 @@ from typing import Any, Dict
 from fastapi import FastAPI
 
 from app.api.chat import router as chat_router
+from app.api.feedback import router as feedback_router
 from app.api.hitl import router as hitl_router
 from app.core.config import get_settings
 from app.core.orchestrator import Orchestrator
 from app.core.registry import build_default_registry
+from app.feedback import FeedbackStore
 from app.observability import setup_observability
 from app.store.run_store import RunStore
 
@@ -22,8 +24,12 @@ async def lifespan(app: FastAPI):
     setup_observability(settings)
     registry = build_default_registry()
     store = RunStore(settings.run_store_path)
+    feedback_store = FeedbackStore(settings.feedback_log_path)
     app.state.orchestrator = Orchestrator(
-        registry=registry, store=store, settings=settings
+        registry=registry,
+        store=store,
+        settings=settings,
+        feedback_store=feedback_store,
     )
     app.state.settings = settings
     yield
@@ -36,6 +42,7 @@ app = FastAPI(
 )
 app.include_router(chat_router)
 app.include_router(hitl_router)
+app.include_router(feedback_router)
 
 
 @app.get("/health")

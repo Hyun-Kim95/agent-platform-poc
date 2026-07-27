@@ -60,6 +60,17 @@ python scripts\smoke_timeout.py
 
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
 
+## Feedback (v0.2)
+
+완료된(또는 저장된) `run_id`에 대해 사용자 평가를 append 한다.  
+저장 경로: `data/feedback.jsonl` (gitignore).
+
+```powershell
+python scripts\smoke_feedback.py
+```
+
+`POST /v1/feedback` — `rating` 1~5. 없는 `run_id`는 **404** `RUN_NOT_FOUND`.
+
 ## Observability (optional)
 
 - **JSONL:** 기본 `data/runs.jsonl` — chat/hitl마다 `trace_id`, `engine`, `latency_ms`, `status` 한 줄
@@ -76,5 +87,6 @@ python scripts\smoke_obs.py
 - `multi_agent`는 LangGraph 파이프라인(웹 mock 또는 Tavily + CSV). HITL은 interrupt + `/v1/hitl`로 재개
 - HITL warm resume은 프로세스 내 MemorySaver; 서버 재시작 후에는 SQLite agent_state cold path
 - 관측은 JSONL + OTel 콘솔 + LangSmith on/off 최소셋. Collector/평가 파이프라인 없음
+- Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - 계획/API 상세 문서는 로컬 `docs/` only (gitignore)
 - 로컬 Python 3.9.0에서는 pydantic을 2.10.x로 고정해야 FastAPI `/docs`가 동작한다 (requirements.txt 참고). 가능하면 3.11+ 권장.
