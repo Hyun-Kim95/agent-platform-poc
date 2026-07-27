@@ -20,6 +20,7 @@ from app.core.models import (
 )
 from app.core.registry import EngineRegistry, build_default_registry
 from app.engines.base import ResumableEngine
+from app.observability import append_run_event, start_span
 from app.store.run_store import RunRecord, RunStore
 
 
@@ -59,7 +60,38 @@ class Orchestrator:
         self._hitl_locks: Set[str] = set()
         self._lock = threading.Lock()
 
+    def _log_envelope(self, event: str, result: Envelope) -> None:
+        err = result.error.code if result.error else None
+        append_run_event(
+            self.settings.jsonl_log_path,
+            event=event,
+            trace_id=result.trace_id,
+            run_id=result.run_id,
+            engine=result.meta.engine,
+            tenant_id=result.meta.tenant_id,
+            status=result.status.value,
+            latency_ms=result.meta.latency_ms,
+            error_code=err,
+        )
+
     def chat(self, req: ChatRequest) -> Envelope:
+        with start_span(
+            "orchestrator.chat",
+            {
+                "tenant_id": req.tenant_id,
+                "engine": req.engine or "",
+            },
+        ) as span:
+            result = self._chat_impl(req)
+            if span is not None:
+                span.set_attribute("run_id", result.run_id)
+                span.set_attribute("trace_id", result.trace_id)
+                span.set_attribute("status", result.status.value)
+                span.set_attribute("latency_ms", result.meta.latency_ms)
+            self._log_envelope("chat", result)
+            return result
+
+    def _chat_impl(self, req: ChatRequest) -> Envelope:
         started = time.perf_counter()
         started_at = RunStore.now()
         trace_id = new_trace_id()
@@ -120,7 +152,6 @@ class Orchestrator:
         result.run_id = run_id
 
         if not agent_state and result.status == RunStatus.waiting_human:
-            # Prefer engine-returned state; reconstruct only as last resort.
             agent_state = {
                 "query": req.query.strip(),
                 "data_path": tenant.data_path,
@@ -154,6 +185,19 @@ class Orchestrator:
         return result
 
     def hitl(self, run_id: str, body: HitlRequest) -> Envelope:
+        with start_span(
+            "orchestrator.hitl",
+            {"run_id": run_id, "decision": body.decision},
+        ) as span:
+            result = self._hitl_impl(run_id, body)
+            if span is not None:
+                span.set_attribute("trace_id", result.trace_id)
+                span.set_attribute("status", result.status.value)
+                span.set_attribute("latency_ms", result.meta.latency_ms)
+            self._log_envelope("hitl", result)
+            return result
+
+    def _hitl_impl(self, run_id: str, body: HitlRequest) -> Envelope:
         started = time.perf_counter()
         trace_id = new_trace_id()
 
@@ -177,7 +221,6 @@ class Orchestrator:
                 hitl=None,
             )
 
-        # Timeout from chat start.
         gs = dict(record.graph_state or {})
         timeout_ms = int(gs.get("timeout_ms") or 120_000)
         started_at = gs.get("started_at") or record.created_at

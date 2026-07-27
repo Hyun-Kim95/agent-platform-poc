@@ -12,12 +12,14 @@ from app.api.hitl import router as hitl_router
 from app.core.config import get_settings
 from app.core.orchestrator import Orchestrator
 from app.core.registry import build_default_registry
+from app.observability import setup_observability
 from app.store.run_store import RunStore
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    setup_observability(settings)
     registry = build_default_registry()
     store = RunStore(settings.run_store_path)
     app.state.orchestrator = Orchestrator(

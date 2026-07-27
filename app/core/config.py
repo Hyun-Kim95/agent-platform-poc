@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     run_store_path: str = "data/runs.db"
     app_version: str = "0.1.0"
 
+    # Observability (optional)
+    langsmith_api_key: str = ""
+    langsmith_tracing: bool = False
+    langsmith_project: str = "agent-platform-poc"
+    otel_enabled: bool = True
+    otel_exporter: str = "console"  # console | none
+    jsonl_log_path: str = "data/runs.jsonl"
+
 
 class TenantConfig(BaseModel):
     tenant_id: str
