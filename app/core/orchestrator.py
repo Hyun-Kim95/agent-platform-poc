@@ -22,7 +22,7 @@ from app.core.models import (
 )
 from app.core.registry import EngineRegistry, build_default_registry
 from app.engines.base import ResumableEngine
-from app.feedback import FeedbackStore
+from app.feedback import FeedbackAppendError, FeedbackStore
 from app.observability import append_run_event, start_span
 from app.store.run_store import RunRecord, RunStore
 
@@ -70,11 +70,12 @@ class Orchestrator:
     def submit_feedback(
         self, body: FeedbackRequest
     ) -> Union[FeedbackResponse, ErrorObject]:
-        """Return FeedbackResponse or ErrorObject(code=RUN_NOT_FOUND)."""
+        """Return FeedbackResponse or ErrorObject (RUN_NOT_FOUND / INTERNAL)."""
+        t0 = time.perf_counter()
         with start_span(
             "orchestrator.feedback",
             {"run_id": body.run_id, "rating": body.rating},
-        ):
+        ) as span:
             record = self.store.get(body.run_id)
             if record is None:
                 return ErrorObject(
@@ -82,12 +83,31 @@ class Orchestrator:
                     message="run_id not found: {0}".format(body.run_id),
                     details={"run_id": body.run_id},
                 )
-            saved = self.feedback_store.append(
-                run_id=body.run_id,
-                rating=body.rating,
-                comment=body.comment,
-                labels=body.labels,
-            )
+            try:
+                saved = self.feedback_store.append(
+                    run_id=body.run_id,
+                    rating=body.rating,
+                    comment=body.comment,
+                    labels=body.labels,
+                )
+            except FeedbackAppendError as exc:
+                return ErrorObject(
+                    code="INTERNAL",
+                    message=str(exc),
+                    details={
+                        "run_id": body.run_id,
+                        "path": str(self.feedback_store.path),
+                    },
+                )
+
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            if span is not None:
+                try:
+                    span.set_attribute("feedback_id", saved["feedback_id"])
+                    span.set_attribute("latency_ms", latency_ms)
+                except Exception:
+                    pass
+
             append_run_event(
                 self.settings.jsonl_log_path,
                 event="feedback",
@@ -96,7 +116,7 @@ class Orchestrator:
                 engine=record.engine,
                 tenant_id=record.tenant_id,
                 status=record.status,
-                latency_ms=0,
+                latency_ms=latency_ms,
                 extra={
                     "feedback_id": saved["feedback_id"],
                     "rating": body.rating,

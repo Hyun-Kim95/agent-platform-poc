@@ -75,7 +75,7 @@ class HitlRequest(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    """POST /v1/feedback — D009."""
+    """POST /v1/feedback body."""
 
     run_id: str = Field(min_length=1, max_length=128)
     rating: int = Field(ge=1, le=5)

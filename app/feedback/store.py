@@ -1,8 +1,9 @@
-"""Append-only feedback JSONL (D009)."""
+"""Append-only feedback JSONL."""
 
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -10,6 +11,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 _lock = threading.Lock()
+_logger = logging.getLogger(__name__)
+
+
+class FeedbackAppendError(Exception):
+    """Disk/IO failure while appending feedback (maps to INTERNAL)."""
 
 
 def _utc_now() -> str:
@@ -40,10 +46,18 @@ class FeedbackStore:
             "labels": list(labels or []),
             "stored_at": _utc_now(),
         }
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(record, ensure_ascii=False)
-        with _lock:
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(line)
-                f.write("\n")
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            line = json.dumps(record, ensure_ascii=False)
+            with _lock:
+                with self.path.open("a", encoding="utf-8") as f:
+                    f.write(line)
+                    f.write("\n")
+        except Exception as exc:
+            _logger.warning(
+                "feedback append failed path=%s", self.path, exc_info=True
+            )
+            raise FeedbackAppendError(
+                "failed to append feedback to {0}".format(self.path)
+            ) from exc
         return record

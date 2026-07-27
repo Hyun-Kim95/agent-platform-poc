@@ -1,4 +1,4 @@
-"""POST /v1/feedback — AC-F01~F03 / D009."""
+"""POST /v1/feedback."""
 
 from __future__ import annotations
 
@@ -22,16 +22,30 @@ def get_orchestrator(request: Request) -> Orchestrator:
     return request.app.state.orchestrator
 
 
-@router.post("/feedback", response_model=FeedbackResponse)
+@router.post(
+    "/feedback",
+    response_model=FeedbackResponse,
+    responses={
+        404: {
+            "model": FeedbackErrorBody,
+            "description": "run_id not found (RUN_NOT_FOUND)",
+        },
+        500: {
+            "model": FeedbackErrorBody,
+            "description": "feedback store failure (INTERNAL)",
+        },
+    },
+)
 def feedback(
     body: FeedbackRequest, request: Request
 ) -> Union[FeedbackResponse, JSONResponse]:
     orch = get_orchestrator(request)
     result = orch.submit_feedback(body)
     if isinstance(result, ErrorObject):
+        status = 404 if result.code == "RUN_NOT_FOUND" else 500
         payload = FeedbackErrorBody(ok=False, error=result)
         return JSONResponse(
-            status_code=404,
+            status_code=status,
             content=payload.model_dump(mode="json"),
         )
     return result

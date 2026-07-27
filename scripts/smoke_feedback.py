@@ -1,5 +1,5 @@
 """
-Feedback smoke — AC-F01, AC-F02, AC-F03.
+Feedback smoke: success path, missing run_id (404), invalid rating (422).
 
 Requires API up. Creates a real run via echo chat, then posts feedback.
 """
@@ -21,7 +21,7 @@ FEEDBACK_JSONL = Path(
 
 def main() -> int:
     with httpx.Client(base_url=BASE, timeout=30.0) as client:
-        # seed run
+        # Seed a persisted run (echo completes immediately).
         chat = client.post(
             "/v1/chat",
             json={
@@ -38,7 +38,7 @@ def main() -> int:
             FEEDBACK_JSONL.stat().st_size if FEEDBACK_JSONL.is_file() else 0
         )
 
-        # AC-F01
+        # Valid feedback → 200 + jsonl line
         ok = client.post(
             "/v1/feedback",
             json={
@@ -68,7 +68,7 @@ def main() -> int:
         assert last.get("feedback_id") == body["feedback_id"], last
         assert last.get("rating") == 5, last
 
-        # AC-F02
+        # Unknown run_id → 404 RUN_NOT_FOUND
         missing = client.post(
             "/v1/feedback",
             json={"run_id": "run_does_not_exist", "rating": 3},
@@ -78,7 +78,7 @@ def main() -> int:
         assert err.get("ok") is False, err
         assert err.get("error", {}).get("code") == "RUN_NOT_FOUND", err
 
-        # AC-F03
+        # Rating out of range → 422
         bad = client.post(
             "/v1/feedback",
             json={"run_id": run_id, "rating": 9},

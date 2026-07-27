@@ -1,5 +1,5 @@
 """
-TIMEOUT smoke (AC-05-ish): waiting_human then hitl after tenant timeout_ms.
+TIMEOUT smoke: waiting_human then hitl after tenant timeout_ms.
 
 Uses tenant=demo_timeout (hitl: true, timeout_ms: 1).
 """
