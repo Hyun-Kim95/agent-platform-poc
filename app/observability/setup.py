@@ -46,6 +46,7 @@ def _setup_otel(settings: Settings) -> None:
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import (
+            BatchSpanProcessor,
             ConsoleSpanExporter,
             SimpleSpanProcessor,
         )
@@ -56,7 +57,14 @@ def _setup_otel(settings: Settings) -> None:
     resource = Resource.create({"service.name": "agent-platform-poc"})
     provider = TracerProvider(resource=resource)
     if settings.otel_exporter == "console":
-        # SimpleSpanProcessor: see spans immediately while learning
-        provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
+        exporter = ConsoleSpanExporter()
+        if settings.otel_span_processor == "batch":
+            provider.add_span_processor(BatchSpanProcessor(exporter))
+        else:
+            # simple: see spans immediately while learning
+            provider.add_span_processor(SimpleSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
-    _logger.info("OTel console exporter enabled")
+    _logger.info(
+        "OTel console exporter enabled (processor=%s)",
+        settings.otel_span_processor,
+    )

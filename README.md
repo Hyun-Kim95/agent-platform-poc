@@ -63,7 +63,7 @@ python scripts\smoke_timeout.py
 ## Observability (optional)
 
 - **JSONL:** 기본 `data/runs.jsonl` — chat/hitl마다 `trace_id`, `engine`, `latency_ms`, `status` 한 줄
-- **OTel:** `OTEL_ENABLED=true`면 요청 span이 **콘솔**에 출력 (`OTEL_EXPORTER=none`이면 끔)
+- **OTel:** 기본 `OTEL_ENABLED=false`. `true`면 요청 span이 **콘솔**에 출력 (`OTEL_EXPORTER=none`이면 끔). `OTEL_SPAN_PROCESSOR=simple|batch` (학습 기본 simple)
 - **LangSmith:** `LANGSMITH_API_KEY`가 있을 때만 LangGraph 트레이스 전송. 비어 있으면 no-op
 
 ```powershell

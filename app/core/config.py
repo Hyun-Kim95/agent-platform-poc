@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -34,8 +34,9 @@ class Settings(BaseSettings):
     langsmith_api_key: str = ""
     langsmith_tracing: bool = False
     langsmith_project: str = "agent-platform-poc"
-    otel_enabled: bool = True
-    otel_exporter: str = "console"  # console | none
+    otel_enabled: bool = False
+    otel_exporter: Literal["console", "none"] = "console"
+    otel_span_processor: Literal["simple", "batch"] = "simple"
     jsonl_log_path: str = "data/runs.jsonl"
 
 

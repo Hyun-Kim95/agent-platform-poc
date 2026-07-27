@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 _lock = threading.Lock()
+_logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
@@ -52,5 +54,5 @@ def append_run_event(
                 f.write(line)
                 f.write("\n")
     except Exception:
-        # Observability must not break the API.
-        pass
+        # Observability must not break the API; do not swallow silently.
+        _logger.warning("jsonl append failed path=%s", path, exc_info=True)

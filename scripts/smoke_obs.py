@@ -10,6 +10,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any, Dict
 
 import httpx
 
@@ -19,6 +20,7 @@ JSONL = Path(os.environ.get("JSONL_LOG_PATH", "data/runs.jsonl"))
 
 def main() -> int:
     before = JSONL.stat().st_size if JSONL.is_file() else 0
+    body: Dict[str, Any] = {}
     with httpx.Client(base_url=BASE, timeout=60.0) as client:
         r = client.post(
             "/v1/chat",
