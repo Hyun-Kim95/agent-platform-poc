@@ -1,9 +1,9 @@
-"""LangGraph multi_agent pipeline with interrupt HITL."""
+"""LangGraph multi_agent pipeline with interrupt HITL + reviewer loop."""
 
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -16,14 +16,23 @@ from app.engines.multi_agent.nodes_search import node_search
 from app.engines.multi_agent.nodes_synthesize import node_synthesize
 from app.engines.multi_agent.state import AgentState
 
-# Process-local checkpointer (warm resume). Cold resume uses SQLite agent_state.
 _CHECKPOINTER = MemorySaver()
 _COMPILED = None
 
 
+def _clear_evidence(state: AgentState) -> AgentState:
+    state = dict(state)
+    state["citations"] = []
+    state["web_hits"] = []
+    state["data_summary"] = ""
+    state["data_value"] = None
+    state["draft"] = ""
+    return state
+
+
 def _tools_node(state: AgentState) -> AgentState:
     route = state.get("route") or "both"
-    target = state.get("revise_target")  # None => follow route
+    target = state.get("revise_target")
     if target is None:
         if route in ("web", "both"):
             state = node_search(state)
@@ -33,7 +42,6 @@ def _tools_node(state: AgentState) -> AgentState:
         state = node_search(state)
     elif target == "analyst":
         state = node_analyst(state)
-    # one-shot revise targeting
     if "revise_target" in state:
         state = dict(state)
         state["revise_target"] = None
@@ -50,6 +58,36 @@ def _router_node(state: AgentState) -> AgentState:
 
 def _synthesize_node(state: AgentState) -> AgentState:
     return node_synthesize(state)
+
+
+def _route_after_review(
+    state: AgentState,
+) -> Literal["human", "loop_gate"]:
+    if state.get("ok", True):
+        return "human"
+    return "loop_gate"
+
+
+def _loop_gate_node(state: AgentState) -> Any:
+    """Count a failed review; retry tools or end with MAX_ITERATIONS."""
+    state = dict(state)
+    it = int(state.get("iteration") or 0) + 1
+    state["iteration"] = it
+    max_it = int(state.get("max_iterations") or 8)
+    risks = list(state.get("risks") or [])
+    risks.append("reviewer loop iteration={0}/{1}".format(it, max_it))
+    state["risks"] = risks
+
+    if it >= max_it:
+        state["error_code"] = "MAX_ITERATIONS"
+        state["ok"] = False
+        state["answer"] = ""
+        return Command(goto=END, update=state)
+
+    state = _clear_evidence(state)
+    state["ok"] = True
+    state["error_code"] = None
+    return Command(goto="tools", update=state)
 
 
 def build_revise_updates(
@@ -90,6 +128,9 @@ def build_revise_updates(
     state["citations"] = citations
     state["revise_target"] = target
     state["answer"] = ""
+    state["iteration"] = 0
+    state["error_code"] = None
+    state["ok"] = True
     return state
 
 
@@ -123,7 +164,6 @@ def _human_node(state: AgentState) -> Any:
         )
         return Command(goto="tools", update=updated)
 
-    # approve
     return Command(goto="synthesize")
 
 
@@ -132,13 +172,21 @@ def build_graph():
     g.add_node("router", _router_node)
     g.add_node("tools", _tools_node)
     g.add_node("reviewer", _reviewer_node)
+    g.add_node("loop_gate", _loop_gate_node)
     g.add_node("human", _human_node)
     g.add_node("synthesize", _synthesize_node)
 
     g.add_edge(START, "router")
     g.add_edge("router", "tools")
     g.add_edge("tools", "reviewer")
-    g.add_edge("reviewer", "human")
+    g.add_conditional_edges(
+        "reviewer",
+        _route_after_review,
+        {
+            "human": "human",
+            "loop_gate": "loop_gate",
+        },
+    )
     g.add_edge("synthesize", END)
     return g
 
@@ -150,11 +198,14 @@ def get_compiled_graph():
     return _COMPILED
 
 
+def reset_compiled_graph() -> None:
+    """Call after graph code changes in long-lived processes (tests)."""
+    global _COMPILED
+    _COMPILED = None
+
+
 def thread_config(run_id: str) -> Dict[str, Any]:
     return {"configurable": {"thread_id": run_id}}
-
-
-# --- Cold-resume helpers (server reload: MemorySaver empty) ---
 
 
 def finalize_answer(state: AgentState) -> AgentState:
@@ -167,13 +218,28 @@ def revise_pipeline(
     feedback: str,
 ) -> AgentState:
     updated = build_revise_updates(state, feedback, revise_target)
-    updated = _tools_node(updated)
-    updated = _reviewer_node(updated)
-    return updated
+    max_it = int(updated.get("max_iterations") or 8)
+    while True:
+        updated = _tools_node(updated)
+        updated = _reviewer_node(updated)
+        if updated.get("ok", True):
+            return updated
+        it = int(updated.get("iteration") or 0) + 1
+        updated["iteration"] = it
+        risks = list(updated.get("risks") or [])
+        risks.append("reviewer loop iteration={0}/{1}".format(it, max_it))
+        updated["risks"] = risks
+        if it >= max_it:
+            updated["error_code"] = "MAX_ITERATIONS"
+            updated["ok"] = False
+            updated["answer"] = ""
+            return updated
+        updated = _clear_evidence(updated)
+        updated["ok"] = True
+        updated["error_code"] = None
 
 
 def run_pipeline(initial: AgentState) -> AgentState:
-    """hitl off convenience (also covered by graph path)."""
     graph = get_compiled_graph()
     cfg = thread_config("pipe_{0}".format(uuid.uuid4().hex))
     initial = dict(initial)

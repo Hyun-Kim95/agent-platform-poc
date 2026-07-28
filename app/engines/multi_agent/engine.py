@@ -36,6 +36,9 @@ class MultiAgentEngine:
             "data_path": ctx.data_path,
             "rules_only": ctx.rules_only,
             "hitl_enabled": ctx.hitl_enabled,
+            "max_iterations": ctx.max_iterations,
+            "iteration": 0,
+            "error_code": None,
             "citations": [],
             "risks": [],
             "ok": True,
@@ -47,8 +50,22 @@ class MultiAgentEngine:
         values = dict(snap.values or {})
 
         if snap.next:
-            # paused at human
             return self._waiting_envelope(ctx, values), values
+
+        if values.get("error_code") == "MAX_ITERATIONS":
+            return (
+                self._failed_envelope(
+                    ctx,
+                    values,
+                    code="MAX_ITERATIONS",
+                    message=(
+                        "reviewer loop exceeded max_iterations={0}".format(
+                            ctx.max_iterations
+                        )
+                    ),
+                ),
+                values,
+            )
 
         return (
             self._to_envelope(ctx, values, RunStatus.completed, hitl=None),
@@ -73,7 +90,6 @@ class MultiAgentEngine:
         }
 
         if snap.next:
-            # Warm path: LangGraph interrupt resume
             graph.invoke(Command(resume=payload), cfg)
             snap2 = graph.get_state(cfg)
             values = dict(snap2.values or {})
@@ -95,12 +111,25 @@ class MultiAgentEngine:
                     ),
                     values,
                 )
+            if values.get("error_code") == "MAX_ITERATIONS":
+                return (
+                    self._failed_envelope(
+                        ctx,
+                        values,
+                        code="MAX_ITERATIONS",
+                        message=(
+                            "reviewer loop exceeded max_iterations={0}".format(
+                                ctx.max_iterations
+                            )
+                        ),
+                    ),
+                    values,
+                )
             return (
                 self._to_envelope(ctx, values, RunStatus.completed, hitl=None),
                 values,
             )
 
-        # Cold path: no checkpoint (process restarted) — same business rules
         state = dict(agent_state)
         if decision == "reject":
             state_dict = state
@@ -129,6 +158,20 @@ class MultiAgentEngine:
                 revise_target=revise_target,
                 feedback=feedback or "",
             )
+            if revised.get("error_code") == "MAX_ITERATIONS":
+                return (
+                    self._failed_envelope(
+                        ctx,
+                        revised,
+                        code="MAX_ITERATIONS",
+                        message=(
+                            "reviewer loop exceeded max_iterations={0}".format(
+                                ctx.max_iterations
+                            )
+                        ),
+                    ),
+                    dict(revised),
+                )
             if ctx.hitl_enabled:
                 return self._waiting_envelope(ctx, revised), dict(revised)
             final = finalize_answer(revised)
@@ -174,6 +217,25 @@ class MultiAgentEngine:
                     risks=risks,
                 ),
             ),
+        )
+
+    def _failed_envelope(
+        self,
+        ctx: EngineContext,
+        state: AgentState,
+        *,
+        code: str,
+        message: str,
+    ) -> Envelope:
+        return Envelope(
+            trace_id=ctx.trace_id,
+            run_id=ctx.run_id,
+            status=RunStatus.failed,
+            answer=None,
+            citations=self._citations(state),
+            meta=self._meta(ctx, state.get("route")),
+            error=ErrorObject(code=code, message=message),
+            hitl=None,
         )
 
     def _to_envelope(

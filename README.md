@@ -58,6 +58,14 @@ HITL 타임아웃 스모크 (`tenant=demo_timeout`, `timeout_ms=1`):
 python scripts\smoke_timeout.py
 ```
 
+Reviewer loop 스모크 (`tenant=demo_loop`, `max_iterations=1`, 쿼리에 `FORCE_INSUFFICIENT`):
+
+```powershell
+python scripts\smoke_loop.py
+```
+
+근거 부족 시 tools 재시도 후 한도 초과면 `status=failed`, `error.code=MAX_ITERATIONS`.
+
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
 
 ## Feedback (v0.2)
@@ -88,5 +96,6 @@ python scripts\smoke_obs.py
 - HITL warm resume은 프로세스 내 MemorySaver; 서버 재시작 후에는 SQLite agent_state cold path
 - 관측은 JSONL + OTel 콘솔 + LangSmith on/off 최소셋. Collector/평가 파이프라인 없음
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
+- Reviewer loop는 rules-only 충분성 + 테스트용 `FORCE_INSUFFICIENT` 마커. LLM 심사관 아님
 - 계획/API 상세 문서는 로컬 `docs/` only (gitignore)
 - 로컬 Python 3.9.0에서는 pydantic을 2.10.x로 고정해야 FastAPI `/docs`가 동작한다 (requirements.txt 참고). 가능하면 3.11+ 권장.

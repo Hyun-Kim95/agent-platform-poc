@@ -1,0 +1,7 @@
+tenant_id: demo_loop
+default_engine: multi_agent
+hitl: false
+timeout_ms: 120000
+max_iterations: 1
+rules_only: false
+data_path: samples/mini.csv

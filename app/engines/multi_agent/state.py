@@ -10,6 +10,9 @@ class AgentState(TypedDict, total=False):
     data_path: str
     rules_only: bool
     hitl_enabled: bool
+    max_iterations: int
+    iteration: int
+    error_code: Optional[str]
     route: str
     web_hits: List[Dict[str, Any]]
     data_summary: str
