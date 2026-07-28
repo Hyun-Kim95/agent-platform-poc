@@ -1,7 +1,8 @@
 """
-Reviewer loop smoke: forced insufficiency hits max_iterations → MAX_ITERATIONS.
+Reviewer loop smoke: tenant force flag + max_iterations → MAX_ITERATIONS.
 
-Uses tenant=demo_loop (hitl: false, max_iterations: 1).
+Uses tenant=demo_loop (hitl: false, max_iterations: 1,
+force_reviewer_insufficient: true).
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import httpx
 
 BASE = "http://127.0.0.1:8000"
 QUERY = (
-    "FORCE_INSUFFICIENT samples/mini.csv 기준 매출 합계와 "
+    "samples/mini.csv 기준 매출 합계와 "
     "관련 공개 기사 요지를 알려줘."
 )
 

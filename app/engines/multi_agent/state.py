@@ -10,6 +10,7 @@ class AgentState(TypedDict, total=False):
     data_path: str
     rules_only: bool
     hitl_enabled: bool
+    force_reviewer_insufficient: bool
     max_iterations: int
     iteration: int
     error_code: Optional[str]
@@ -18,6 +19,8 @@ class AgentState(TypedDict, total=False):
     data_summary: str
     data_value: Optional[float]
     citations: List[Dict[str, Any]]
+    # Past tool rounds archived before clear (loop retries). Not Envelope citations.
+    citation_history: List[Dict[str, Any]]
     draft: str
     risks: List[str]
     answer: str

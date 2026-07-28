@@ -197,6 +197,9 @@ class Orchestrator:
             )
 
         rules_only = tenant.rules_only or self.settings.rules_only
+        force_insuf = bool(tenant.force_reviewer_insufficient) or bool(
+            self.settings.force_reviewer_insufficient
+        )
         ctx = EngineContext(
             tenant_id=tenant.tenant_id,
             query=req.query.strip(),
@@ -208,6 +211,7 @@ class Orchestrator:
             max_iterations=tenant.max_iterations,
             data_path=tenant.data_path,
             rules_only=rules_only,
+            force_reviewer_insufficient=force_insuf,
         )
 
         result, agent_state = _unpack_engine_result(engine.run(ctx))
@@ -225,6 +229,7 @@ class Orchestrator:
                 "query": req.query.strip(),
                 "data_path": tenant.data_path,
                 "rules_only": rules_only,
+                "force_reviewer_insufficient": force_insuf,
                 "route": result.meta.route,
                 "citations": [c.model_dump() for c in result.citations],
                 "risks": (
@@ -248,6 +253,7 @@ class Orchestrator:
                 "hitl_enabled": tenant.hitl,
                 "timeout_ms": tenant.timeout_ms,
                 "max_iterations": tenant.max_iterations,
+                "force_reviewer_insufficient": force_insuf,
             },
             created_at=started_at,
         )
@@ -433,6 +439,9 @@ class Orchestrator:
                 max_iterations=int(gs.get("max_iterations") or 8),
                 data_path=gs.get("data_path") or "samples/mini.csv",
                 rules_only=bool(gs.get("rules_only", False)),
+                force_reviewer_insufficient=bool(
+                    gs.get("force_reviewer_insufficient", False)
+                ),
             )
             result, new_state = _unpack_engine_result(
                 engine.resume(
@@ -482,6 +491,9 @@ class Orchestrator:
             "hitl_enabled": ctx_extras.get("hitl_enabled"),
             "timeout_ms": ctx_extras.get("timeout_ms") or result.meta.timeout_ms,
             "max_iterations": ctx_extras.get("max_iterations"),
+            "force_reviewer_insufficient": ctx_extras.get(
+                "force_reviewer_insufficient"
+            ),
             "route": result.meta.route,
             "answer": result.answer,
             "citations": [c.model_dump() for c in result.citations],

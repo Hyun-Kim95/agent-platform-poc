@@ -20,8 +20,28 @@ _CHECKPOINTER = MemorySaver()
 _COMPILED = None
 
 
-def _clear_evidence(state: AgentState) -> AgentState:
+def _archive_and_clear_evidence(
+    state: AgentState, *, round_id: int
+) -> AgentState:
+    """Keep current citations in citation_history, then clear live evidence."""
     state = dict(state)
+    cites = list(state.get("citations") or [])
+    history = list(state.get("citation_history") or [])
+    if cites:
+        history.append(
+            {
+                "round": round_id,
+                "citations": cites,
+            }
+        )
+        risks = list(state.get("risks") or [])
+        risks.append(
+            "archived {0} citation(s) from round {1}".format(
+                len(cites), round_id
+            )
+        )
+        state["risks"] = risks
+    state["citation_history"] = history
     state["citations"] = []
     state["web_hits"] = []
     state["data_summary"] = ""
@@ -84,7 +104,7 @@ def _loop_gate_node(state: AgentState) -> Any:
         state["answer"] = ""
         return Command(goto=END, update=state)
 
-    state = _clear_evidence(state)
+    state = _archive_and_clear_evidence(state, round_id=it)
     state["ok"] = True
     state["error_code"] = None
     return Command(goto="tools", update=state)
@@ -199,7 +219,12 @@ def get_compiled_graph():
 
 
 def reset_compiled_graph() -> None:
-    """Call after graph code changes in long-lived processes (tests)."""
+    """Drop the process-local compiled graph cache.
+
+    Dev/test helper only. Normal API traffic never calls this; restarting
+    uvicorn already reloads the module. Use in REPL/unit tests after editing
+    graph code in the same Python process.
+    """
     global _COMPILED
     _COMPILED = None
 
@@ -234,7 +259,7 @@ def revise_pipeline(
             updated["ok"] = False
             updated["answer"] = ""
             return updated
-        updated = _clear_evidence(updated)
+        updated = _archive_and_clear_evidence(updated, round_id=it)
         updated["ok"] = True
         updated["error_code"] = None
 

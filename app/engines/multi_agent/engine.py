@@ -36,10 +36,12 @@ class MultiAgentEngine:
             "data_path": ctx.data_path,
             "rules_only": ctx.rules_only,
             "hitl_enabled": ctx.hitl_enabled,
+            "force_reviewer_insufficient": ctx.force_reviewer_insufficient,
             "max_iterations": ctx.max_iterations,
             "iteration": 0,
             "error_code": None,
             "citations": [],
+            "citation_history": [],
             "risks": [],
             "ok": True,
         }

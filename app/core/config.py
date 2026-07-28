@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Feedback (v0.2)
     feedback_log_path: str = "data/feedback.jsonl"
 
+    # Dev/test: force reviewer ok=False (loop smoke). Default off.
+    force_reviewer_insufficient: bool = False
+
 
 class TenantConfig(BaseModel):
     tenant_id: str
@@ -51,6 +54,7 @@ class TenantConfig(BaseModel):
     max_iterations: int = 8
     rules_only: bool = False
     data_path: str = "samples/mini.csv"
+    force_reviewer_insufficient: bool = False
     extra: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -72,6 +76,7 @@ def load_tenant(tenant_id: str) -> Optional[TenantConfig]:
         "max_iterations",
         "rules_only",
         "data_path",
+        "force_reviewer_insufficient",
     }
     extra = {k: v for k, v in raw.items() if k not in known}
     return TenantConfig(
@@ -82,5 +87,8 @@ def load_tenant(tenant_id: str) -> Optional[TenantConfig]:
         max_iterations=int(raw.get("max_iterations", 8)),
         rules_only=bool(raw.get("rules_only", False)),
         data_path=str(raw.get("data_path", "samples/mini.csv")),
+        force_reviewer_insufficient=bool(
+            raw.get("force_reviewer_insufficient", False)
+        ),
         extra=extra,
     )

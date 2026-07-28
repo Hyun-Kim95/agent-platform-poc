@@ -138,3 +138,4 @@ class EngineContext(BaseModel):
     max_iterations: int = 8
     data_path: str = "samples/mini.csv"
     rules_only: bool = False
+    force_reviewer_insufficient: bool = False

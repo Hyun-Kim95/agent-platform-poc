@@ -5,3 +5,4 @@ timeout_ms: 120000
 max_iterations: 1
 rules_only: false
 data_path: samples/mini.csv
+force_reviewer_insufficient: true

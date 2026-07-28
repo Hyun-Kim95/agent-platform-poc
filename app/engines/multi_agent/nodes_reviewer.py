@@ -1,24 +1,20 @@
-"""Reviewer node: rules-only sufficiency check (+ optional loop force)."""
+"""Reviewer node: rules-only sufficiency check."""
 
 from __future__ import annotations
 
 from app.engines.multi_agent.state import AgentState
-
-# Query substring for loop smoke only (not a production signal).
-FORCE_INSUFFICIENT_MARK = "FORCE_INSUFFICIENT"
 
 
 def node_reviewer(state: AgentState) -> AgentState:
     route = state.get("route") or "both"
     citations = state.get("citations") or []
     risks = list(state.get("risks") or [])
-    query = state.get("query") or ""
 
     types = {c.get("type") for c in citations}
     ok = True
 
-    if FORCE_INSUFFICIENT_MARK in query:
-        risks.append("forced insufficiency for reviewer loop test")
+    if state.get("force_reviewer_insufficient"):
+        risks.append("forced insufficiency (force_reviewer_insufficient=true)")
         ok = False
     else:
         if (
