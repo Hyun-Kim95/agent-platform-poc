@@ -36,8 +36,8 @@ Thumbs.db
 .gitmodules
 vendor/
 
-# Local planning & design notes (do not push)
-docs/
+# Local planning & design notes (do not push; root only — keep samples/docs)
+/docs/
 
 # LLM wiki raw dumps (may contain sensitive originals; only distilled notes are committed)
 docs/wiki/_raw/

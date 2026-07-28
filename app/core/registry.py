@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 
 from app.engines.base import AgentEngine
 from app.engines.echo import EchoEngine
+from app.engines.hybrid_rag import HybridRagEngine
 from app.engines.multi_agent import MultiAgentEngine
 
 
@@ -27,4 +28,5 @@ def build_default_registry() -> EngineRegistry:
     reg = EngineRegistry()
     reg.register(EchoEngine())
     reg.register(MultiAgentEngine())
+    reg.register(HybridRagEngine())
     return reg

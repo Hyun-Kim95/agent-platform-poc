@@ -15,7 +15,7 @@ class RunStatus(str, Enum):
 
 
 class Citation(BaseModel):
-    type: Literal["web", "data", "no_hit"]
+    type: Literal["web", "data", "doc", "sql", "no_hit"]
     ref: str = ""
     title: str = ""
     snippet: Optional[str] = None
@@ -27,7 +27,9 @@ class Meta(BaseModel):
     latency_ms: int = 0
     timeout_ms: int = 120_000
     thread_id: Optional[str] = None
-    route: Optional[Literal["web", "data", "both", "clarify"]] = None
+    route: Optional[
+        Literal["web", "data", "both", "clarify", "rag", "sql"]
+    ] = None
 
 
 class ErrorObject(BaseModel):

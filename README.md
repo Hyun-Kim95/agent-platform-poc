@@ -6,7 +6,7 @@
 ## 목적
 
 - 단일 HTTP API (`/v1/chat`)로 세로 슬라이스 검증
-- 엔진 Registry로 `multi_agent`와 `echo` stub 분기
+- 엔진 Registry로 `multi_agent` / `hybrid_rag` / `echo` stub 분기
 - `tenant=demo`에서 Human-in-the-loop 승인/수정/거절
 
 ## 빠른 시작
@@ -72,6 +72,20 @@ python scripts\smoke_loop.py
 
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
 
+## Hybrid RAG (v0.2)
+
+문서 keyword 검색 + SQLite T2SQL(Guardrail)을 한 Envelope로 합친다.
+HITL 기본 off. DB는 최초 실행 시 `samples/mini.csv`로 `samples/hybrid.db`를 만든다(`*.db` gitignore).
+
+```powershell
+python scripts\smoke_hybrid.py
+```
+
+- 문서 질문 → `citations.type=doc` (또는 `no_hit`)
+- 매출/합계 → `sql` citation
+- `DROP` 등 위험 의도 → `status=failed`, `error.code=SQL_GUARDRAIL`
+- `meta.engine=hybrid_rag` (`multi_agent`와 구분)
+
 ## Feedback (v0.2)
 
 완료된(또는 저장된) `run_id`에 대해 사용자 평가를 append 한다.  
@@ -101,5 +115,6 @@ python scripts\smoke_obs.py
 - 관측은 JSONL + OTel 콘솔 + LangSmith on/off 최소셋. Collector/평가 파이프라인 없음
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - Reviewer 강제 실패는 tenant/env 플래그(`force_reviewer_insufficient`). 쿼리 매직 문자열 없음
+- `hybrid_rag`: rule-first router + keyword 청크 + SQLite Guardrail. 벡터DB/LLM 라우터 없음
 - 계획/API 상세 문서는 로컬 `docs/` only (gitignore)
 - 로컬 Python 3.9.0에서는 pydantic을 2.10.x로 고정해야 FastAPI `/docs`가 동작한다 (requirements.txt 참고). 가능하면 3.11+ 권장.
