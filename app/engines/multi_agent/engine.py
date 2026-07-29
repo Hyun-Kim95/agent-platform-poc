@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from langgraph.types import Command
 
+from app.core.citations import citations_or_fallback
 from app.core.models import (
     Citation,
     Envelope,
@@ -271,26 +272,4 @@ class MultiAgentEngine:
 
     def _citations(self, state: AgentState) -> List[Citation]:
         raw = list(state.get("citations") or [])
-        citations = [_to_citation(c) for c in raw]
-        if not citations:
-            citations = [
-                Citation(
-                    type="no_hit",
-                    ref="",
-                    title="no citations produced",
-                    snippet=None,
-                )
-            ]
-        return citations
-
-
-def _to_citation(raw: Dict[str, Any]) -> Citation:
-    ctype = raw.get("type") or "no_hit"
-    if ctype not in ("web", "data", "no_hit"):
-        ctype = "no_hit"
-    return Citation(
-        type=ctype,
-        ref=raw.get("ref") or "",
-        title=raw.get("title") or "",
-        snippet=raw.get("snippet"),
-    )
+        return citations_or_fallback(raw)

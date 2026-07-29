@@ -14,6 +14,14 @@ def _tokenize(text: str) -> List[str]:
     return [t for t in re.split(r"[^\w가-힣]+", text.lower()) if t]
 
 
+def _is_title_only(body: str) -> bool:
+    """True when chunk is only a markdown heading line (no body)."""
+    lines = [ln for ln in body.splitlines() if ln.strip()]
+    if len(lines) != 1:
+        return False
+    return bool(re.match(r"#{1,3}\s+\S", lines[0]))
+
+
 def _chunk_markdown(path: Path) -> List[Dict[str, Any]]:
     text = path.read_text(encoding="utf-8")
     parts = re.split(r"\n(?=#{1,3}\s)", text)
@@ -22,6 +30,8 @@ def _chunk_markdown(path: Path) -> List[Dict[str, Any]]:
     for part in parts:
         body = part.strip()
         if not body:
+            continue
+        if _is_title_only(body):
             continue
         title = body.splitlines()[0].lstrip("#").strip() or path.stem
         chunks.append(

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.core.citations import citations_or_fallback
 from app.core.models import (
-    Citation,
     Envelope,
     EngineContext,
     ErrorObject,
@@ -57,7 +57,7 @@ class HybridRagEngine:
                     run_id=ctx.run_id,
                     status=RunStatus.failed,
                     answer=None,
-                    citations=self._citations(citations),
+                    citations=citations_or_fallback(citations),
                     meta=self._meta(ctx, route, usage=usage),
                     error=ErrorObject(
                         code="SQL_GUARDRAIL",
@@ -95,7 +95,7 @@ class HybridRagEngine:
             run_id=ctx.run_id,
             status=RunStatus.completed,
             answer=answer,
-            citations=self._citations(citations),
+            citations=citations_or_fallback(citations),
             meta=self._meta(ctx, route, usage=usage),
             error=None,
             hitl=None,
@@ -118,28 +118,3 @@ class HybridRagEngine:
             route=r,  # type: ignore[arg-type]
             usage=usage,
         )
-
-    def _citations(self, raw: List[Dict[str, Any]]) -> List[Citation]:
-        out: List[Citation] = []
-        for c in raw:
-            ctype = c.get("type") or "no_hit"
-            if ctype not in ("web", "data", "doc", "sql", "no_hit"):
-                ctype = "no_hit"
-            out.append(
-                Citation(
-                    type=ctype,
-                    ref=c.get("ref") or "",
-                    title=c.get("title") or "",
-                    snippet=c.get("snippet"),
-                )
-            )
-        if not out:
-            out.append(
-                Citation(
-                    type="no_hit",
-                    ref="",
-                    title="no citations produced",
-                    snippet=None,
-                )
-            )
-        return out

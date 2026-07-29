@@ -35,8 +35,9 @@ def generate_sql_template(query: str) -> str:
     q = query or ""
     lower = q.lower()
 
+    # Word-boundary only (avoid substring false positives like "updated").
     for word in _DANGEROUS:
-        if re.search(r"\b" + word + r"\b", lower) or word in lower:
+        if re.search(r"\b" + word + r"\b", lower):
             return "DROP TABLE sales;"
 
     if any(k in q for k in ("합계", "매출", "revenue", "sum", "총")):

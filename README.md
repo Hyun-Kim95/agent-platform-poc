@@ -84,12 +84,14 @@ Router도 rule-first다. 모호한 질문(키워드 없음 또는 rag+sql 동시
 `LLM_API_KEY` + `RULES_ONLY=false`이면 LLM이 `rag|sql|both`를 고른다.
 
 Guardrail은 `sqlparse`로 주석을 제거한 뒤 SELECT/금지 키워드/테이블 allowlist/LIMIT를 검사한다.
+소소: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, citation 헬퍼 공유.
 
 ```powershell
 python scripts\smoke_hybrid.py
 python scripts\smoke_t2sql_llm.py
 python scripts\smoke_router_llm.py
 python scripts\smoke_guardrail.py
+python scripts\smoke_small_fixes.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)
