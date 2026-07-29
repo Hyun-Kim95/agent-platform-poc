@@ -80,9 +80,13 @@ HITL 기본 off. DB는 최초 실행 시 `samples/mini.csv`로 `samples/hybrid.d
 T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이면 LLM 초안 → 동일 Guardrail.
 키 없음/실패 시 template fallback. 위험 의도(DROP 등)는 템플릿이 그대로 Guardrail로 보낸다.
 
+Router도 rule-first다. 모호한 질문(키워드 없음 또는 rag+sql 동시)이고
+`LLM_API_KEY` + `RULES_ONLY=false`이면 LLM이 `rag|sql|both`를 고른다.
+
 ```powershell
 python scripts\smoke_hybrid.py
 python scripts\smoke_t2sql_llm.py
+python scripts\smoke_router_llm.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)

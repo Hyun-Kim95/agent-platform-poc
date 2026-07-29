@@ -19,6 +19,7 @@ from app.engines.hybrid_rag.rag import retrieve
 from app.engines.hybrid_rag.router import route_query
 from app.engines.hybrid_rag.synthesize import synthesize
 from app.engines.hybrid_rag.t2sql import generate_sql
+from app.llm.usage import merge_usage
 
 
 class HybridRagEngine:
@@ -26,12 +27,15 @@ class HybridRagEngine:
 
     def run(self, ctx: EngineContext) -> Envelope:
         # Hybrid HITL is off by design (H7); ignore tenant.hitl.
-        route = route_query(ctx.query)
+        route, route_usage, route_source = route_query(
+            ctx.query,
+            rules_only=ctx.rules_only,
+        )
         citations: List[Dict[str, Any]] = []
         passages: List[Dict[str, Any]] = []
         sql = ""
         sql_source = "template"
-        llm_usage: Optional[TokenUsage] = None
+        sql_usage: Optional[TokenUsage] = None
         columns: List[str] = []
         rows: List[Dict[str, Any]] = []
 
@@ -41,11 +45,12 @@ class HybridRagEngine:
                 citations.append(dict(p["citation"]))
 
         if route in ("sql", "both"):
-            sql, llm_usage, sql_source = generate_sql(
+            sql, sql_usage, sql_source = generate_sql(
                 ctx.query,
                 rules_only=ctx.rules_only,
             )
             ok, reason = check_sql(sql)
+            usage = merge_usage(route_usage, sql_usage)
             if not ok:
                 return Envelope(
                     trace_id=ctx.trace_id,
@@ -53,11 +58,15 @@ class HybridRagEngine:
                     status=RunStatus.failed,
                     answer=None,
                     citations=self._citations(citations),
-                    meta=self._meta(ctx, route, usage=llm_usage),
+                    meta=self._meta(ctx, route, usage=usage),
                     error=ErrorObject(
                         code="SQL_GUARDRAIL",
                         message=reason or "SQL rejected by guardrail",
-                        details={"sql": sql, "sql_source": sql_source},
+                        details={
+                            "sql": sql,
+                            "sql_source": sql_source,
+                            "route_source": route_source,
+                        },
                     ),
                     hitl=None,
                 )
@@ -71,6 +80,7 @@ class HybridRagEngine:
                 }
             )
 
+        usage = merge_usage(route_usage, sql_usage)
         answer = synthesize(
             ctx.query,
             route,
@@ -78,6 +88,7 @@ class HybridRagEngine:
             sql,
             columns,
             rows,
+            route_source=route_source,
         )
         return Envelope(
             trace_id=ctx.trace_id,
@@ -85,7 +96,7 @@ class HybridRagEngine:
             status=RunStatus.completed,
             answer=answer,
             citations=self._citations(citations),
-            meta=self._meta(ctx, route, usage=llm_usage),
+            meta=self._meta(ctx, route, usage=usage),
             error=None,
             hitl=None,
         )

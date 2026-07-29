@@ -12,12 +12,14 @@ def synthesize(
     sql: str,
     columns: List[str],
     rows: List[Dict[str, Any]],
+    *,
+    route_source: str = "rules",
 ) -> str:
     parts = [
         "## Hybrid answer",
         "",
         "Query: {0}".format(query),
-        "Route: {0}".format(route),
+        "Route: {0} ({1})".format(route, route_source),
     ]
 
     if route in ("rag", "both"):
