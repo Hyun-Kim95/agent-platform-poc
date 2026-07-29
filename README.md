@@ -83,10 +83,13 @@ T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이�
 Router도 rule-first다. 모호한 질문(키워드 없음 또는 rag+sql 동시)이고
 `LLM_API_KEY` + `RULES_ONLY=false`이면 LLM이 `rag|sql|both`를 고른다.
 
+Guardrail은 `sqlparse`로 주석을 제거한 뒤 SELECT/금지 키워드/테이블 allowlist/LIMIT를 검사한다.
+
 ```powershell
 python scripts\smoke_hybrid.py
 python scripts\smoke_t2sql_llm.py
 python scripts\smoke_router_llm.py
+python scripts\smoke_guardrail.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)

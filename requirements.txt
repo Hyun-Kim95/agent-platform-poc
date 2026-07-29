@@ -11,3 +11,4 @@ langgraph>=0.2.76,<0.3.0
 # Pin OTel to the verified learning stack (avoid silent minor drift).
 opentelemetry-api==1.41.1
 opentelemetry-sdk==1.41.1
+sqlparse>=0.5.0,<0.6.0
