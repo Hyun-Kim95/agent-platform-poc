@@ -77,8 +77,12 @@ python scripts\smoke_loop.py
 문서 keyword 검색 + SQLite T2SQL(Guardrail)을 한 Envelope로 합친다.
 HITL 기본 off. DB는 최초 실행 시 `samples/mini.csv`로 `samples/hybrid.db`를 만든다(`*.db` gitignore).
 
+T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이면 LLM 초안 → 동일 Guardrail.
+키 없음/실패 시 template fallback. 위험 의도(DROP 등)는 템플릿이 그대로 Guardrail로 보낸다.
+
 ```powershell
 python scripts\smoke_hybrid.py
+python scripts\smoke_t2sql_llm.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)
@@ -120,6 +124,6 @@ python scripts\smoke_usage.py
 - Usage/cost는 학습용 추정·단가표. 청구 SSOT 아님. 엔진 LLM 실측은 `app/llm/client` 준비만
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - Reviewer 강제 실패는 tenant/env 플래그(`force_reviewer_insufficient`). 쿼리 매직 문자열 없음
-- `hybrid_rag`: rule-first router + keyword 청크 + SQLite Guardrail. 벡터DB/LLM 라우터 없음
+- `hybrid_rag`: rule-first router + keyword 청크 + SQLite Guardrail. T2SQL은 템플릿 + 선택적 LLM(키 있을 때). 벡터DB 없음
 - 계획/API 상세 문서는 로컬 `docs/` only (gitignore)
 - 로컬 Python 3.9.0에서는 pydantic을 2.10.x로 고정해야 FastAPI `/docs`가 동작한다 (requirements.txt 참고). 가능하면 3.11+ 권장.

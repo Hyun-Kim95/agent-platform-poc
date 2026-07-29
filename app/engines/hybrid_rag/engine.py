@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.core.models import (
     Citation,
@@ -11,6 +11,7 @@ from app.core.models import (
     ErrorObject,
     Meta,
     RunStatus,
+    TokenUsage,
 )
 from app.engines.hybrid_rag import db as hybrid_db
 from app.engines.hybrid_rag.guardrail import check_sql
@@ -29,6 +30,8 @@ class HybridRagEngine:
         citations: List[Dict[str, Any]] = []
         passages: List[Dict[str, Any]] = []
         sql = ""
+        sql_source = "template"
+        llm_usage: Optional[TokenUsage] = None
         columns: List[str] = []
         rows: List[Dict[str, Any]] = []
 
@@ -38,7 +41,10 @@ class HybridRagEngine:
                 citations.append(dict(p["citation"]))
 
         if route in ("sql", "both"):
-            sql = generate_sql(ctx.query)
+            sql, llm_usage, sql_source = generate_sql(
+                ctx.query,
+                rules_only=ctx.rules_only,
+            )
             ok, reason = check_sql(sql)
             if not ok:
                 return Envelope(
@@ -47,11 +53,11 @@ class HybridRagEngine:
                     status=RunStatus.failed,
                     answer=None,
                     citations=self._citations(citations),
-                    meta=self._meta(ctx, route),
+                    meta=self._meta(ctx, route, usage=llm_usage),
                     error=ErrorObject(
                         code="SQL_GUARDRAIL",
                         message=reason or "SQL rejected by guardrail",
-                        details={"sql": sql},
+                        details={"sql": sql, "sql_source": sql_source},
                     ),
                     hitl=None,
                 )
@@ -60,7 +66,7 @@ class HybridRagEngine:
                 {
                     "type": "sql",
                     "ref": sql,
-                    "title": "hybrid.db query",
+                    "title": "hybrid.db query ({0})".format(sql_source),
                     "snippet": "rows={0}".format(len(rows)),
                 }
             )
@@ -79,12 +85,18 @@ class HybridRagEngine:
             status=RunStatus.completed,
             answer=answer,
             citations=self._citations(citations),
-            meta=self._meta(ctx, route),
+            meta=self._meta(ctx, route, usage=llm_usage),
             error=None,
             hitl=None,
         )
 
-    def _meta(self, ctx: EngineContext, route: str) -> Meta:
+    def _meta(
+        self,
+        ctx: EngineContext,
+        route: str,
+        *,
+        usage: Optional[TokenUsage] = None,
+    ) -> Meta:
         r = route if route in ("rag", "sql", "both", "clarify") else "both"
         return Meta(
             engine=self.name,
@@ -93,6 +105,7 @@ class HybridRagEngine:
             timeout_ms=ctx.timeout_ms,
             thread_id=ctx.thread_id,
             route=r,  # type: ignore[arg-type]
+            usage=usage,
         )
 
     def _citations(self, raw: List[Dict[str, Any]]) -> List[Citation]:
