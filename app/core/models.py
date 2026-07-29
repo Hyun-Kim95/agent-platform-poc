@@ -21,6 +21,17 @@ class Citation(BaseModel):
     snippet: Optional[str] = None
 
 
+class TokenUsage(BaseModel):
+    """LLM token/cost snapshot (estimated or provider-reported)."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    model: str = ""
+    estimated: bool = True
+    cost_usd: Optional[float] = None
+
+
 class Meta(BaseModel):
     engine: str
     tenant_id: str
@@ -30,6 +41,7 @@ class Meta(BaseModel):
     route: Optional[
         Literal["web", "data", "both", "clarify", "rag", "sql"]
     ] = None
+    usage: Optional[TokenUsage] = None
 
 
 class ErrorObject(BaseModel):

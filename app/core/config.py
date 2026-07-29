@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Dev/test: force reviewer ok=False (loop smoke). Default off.
     force_reviewer_insufficient: bool = False
 
+    # Token/cost lite: fill Meta.usage when engine omitted it
+    usage_estimate_enabled: bool = True
+
 
 class TenantConfig(BaseModel):
     tenant_id: str

@@ -23,6 +23,7 @@ from app.core.models import (
 from app.core.registry import EngineRegistry, build_default_registry
 from app.engines.base import ResumableEngine
 from app.feedback import FeedbackAppendError, FeedbackStore
+from app.llm.usage import estimate_usage
 from app.observability import append_run_event, start_span
 from app.store.run_store import RunRecord, RunStore
 
@@ -129,8 +130,22 @@ class Orchestrator:
                 stored_at=saved["stored_at"],
             )
 
+    def _ensure_usage(self, result: Envelope, query: str) -> None:
+        if result.meta.usage is not None:
+            return
+        if not self.settings.usage_estimate_enabled:
+            return
+        result.meta.usage = estimate_usage(
+            query or "",
+            result.answer or "",
+            self.settings.llm_model,
+        )
+
     def _log_envelope(self, event: str, result: Envelope) -> None:
         err = result.error.code if result.error else None
+        extra = None
+        if result.meta.usage is not None:
+            extra = {"usage": result.meta.usage.model_dump()}
         append_run_event(
             self.settings.jsonl_log_path,
             event=event,
@@ -141,6 +156,7 @@ class Orchestrator:
             status=result.status.value,
             latency_ms=result.meta.latency_ms,
             error_code=err,
+            extra=extra,
         )
 
     def chat(self, req: ChatRequest) -> Envelope:
@@ -157,6 +173,7 @@ class Orchestrator:
                 span.set_attribute("trace_id", result.trace_id)
                 span.set_attribute("status", result.status.value)
                 span.set_attribute("latency_ms", result.meta.latency_ms)
+            self._ensure_usage(result, req.query.strip())
             self._log_envelope("chat", result)
             return result
 
@@ -269,6 +286,11 @@ class Orchestrator:
                 span.set_attribute("trace_id", result.trace_id)
                 span.set_attribute("status", result.status.value)
                 span.set_attribute("latency_ms", result.meta.latency_ms)
+            query = ""
+            record = self.store.get(run_id)
+            if record is not None and isinstance(record.graph_state, dict):
+                query = str(record.graph_state.get("query") or "")
+            self._ensure_usage(result, query)
             self._log_envelope("hitl", result)
             return result
 

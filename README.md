@@ -102,9 +102,13 @@ python scripts\smoke_feedback.py
 - **JSONL:** 기본 `data/runs.jsonl` — chat/hitl마다 `trace_id`, `engine`, `latency_ms`, `status` 한 줄
 - **OTel:** 기본 `OTEL_ENABLED=false`. `true`면 요청 span이 **콘솔**에 출력 (`OTEL_EXPORTER=none`이면 끔). `OTEL_SPAN_PROCESSOR=simple|batch` (학습 기본 simple)
 - **LangSmith:** `LANGSMITH_API_KEY`가 있을 때만 LangGraph 트레이스 전송. 비어 있으면 no-op
+- **Usage (Should):** chat/hitl `meta.usage` + JSONL `usage`
+  (`prompt_tokens` / `completion_tokens` / `total_tokens` / `cost_usd` / `estimated`).
+  LLM 미호출 시 char/4 추정 (`USAGE_ESTIMATE_ENABLED`).
 
 ```powershell
 python scripts\smoke_obs.py
+python scripts\smoke_usage.py
 ```
 
 ## Known limitations
@@ -113,6 +117,7 @@ python scripts\smoke_obs.py
 - `multi_agent`는 LangGraph 파이프라인(웹 mock 또는 Tavily + CSV). HITL은 interrupt + `/v1/hitl`로 재개
 - HITL warm resume은 프로세스 내 MemorySaver; 서버 재시작 후에는 SQLite agent_state cold path
 - 관측은 JSONL + OTel 콘솔 + LangSmith on/off 최소셋. Collector/평가 파이프라인 없음
+- Usage/cost는 학습용 추정·단가표. 청구 SSOT 아님. 엔진 LLM 실측은 `app/llm/client` 준비만
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - Reviewer 강제 실패는 tenant/env 플래그(`force_reviewer_insufficient`). 쿼리 매직 문자열 없음
 - `hybrid_rag`: rule-first router + keyword 청크 + SQLite Guardrail. 벡터DB/LLM 라우터 없음
