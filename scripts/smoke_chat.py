@@ -1,8 +1,8 @@
 """
-Smoke: Registry branching via echo vs multi_agent.
+Smoke: Registry branching across engines.
 
-Checks that meta.engine differs between engines, plus /health and
-TENANT_NOT_FOUND / ENGINE_NOT_FOUND (HTTP 200 + status=failed).
+Checks meta.engine for echo / multi_agent / hybrid_rag / tool_router,
+/health (incl. run_store_backend), and TENANT/ENGINE_NOT_FOUND.
 """
 
 from __future__ import annotations
@@ -21,10 +21,12 @@ def main() -> int:
     with httpx.Client(base_url=BASE, timeout=30.0) as client:
         h = client.get("/health")
         h.raise_for_status()
-        assert h.json().get("ok") is True, h.text
-        print("OK /health", h.json())
+        health = h.json()
+        assert health.get("ok") is True, h.text
+        assert health.get("run_store_backend") in ("postgres", "sqlite"), health
+        print("OK /health", health)
 
-        # echo engine
+        # echo
         echo = client.post(
             "/v1/chat",
             json={
@@ -40,7 +42,7 @@ def main() -> int:
         assert echo_body["meta"]["engine"] == "echo", echo_body["meta"]
         assert echo_body["answer"] and echo_body["answer"].startswith("[echo]")
 
-        # multi_agent engine (meta.engine must differ from echo)
+        # multi_agent (may waiting_human on demo)
         ma = client.post(
             "/v1/chat",
             json={
@@ -54,6 +56,42 @@ def main() -> int:
         print("multi_agent:", json.dumps(ma_body, ensure_ascii=True, indent=2))
         assert ma_body["meta"]["engine"] == "multi_agent"
         assert ma_body["meta"]["engine"] != echo_body["meta"]["engine"]
+
+        # hybrid_rag
+        hy = client.post(
+            "/v1/chat",
+            json={
+                "tenant_id": "internal",
+                "engine": "hybrid_rag",
+                "query": "매출 합계",
+            },
+        )
+        hy.raise_for_status()
+        hy_body = hy.json()
+        print("hybrid_rag:", json.dumps(hy_body, ensure_ascii=True, indent=2))
+        assert hy_body["meta"]["engine"] == "hybrid_rag"
+        assert hy_body["status"] in ("completed", "failed")
+
+        # tool_router
+        tr = client.post(
+            "/v1/chat",
+            json={
+                "tenant_id": "internal",
+                "engine": "tool_router",
+                "query": "12+5 계산",
+            },
+        )
+        tr.raise_for_status()
+        tr_body = tr.json()
+        print("tool_router:", json.dumps(tr_body, ensure_ascii=True, indent=2))
+        assert tr_body["status"] == "completed"
+        assert tr_body["meta"]["engine"] == "tool_router"
+        assert tr_body["meta"].get("route") == "calc"
+        assert any(
+            c.get("type") == "tool" and c.get("ref") == "calc"
+            for c in (tr_body.get("citations") or [])
+        )
+        assert "17" in (tr_body.get("answer") or "")
 
         # Domain errors stay HTTP 200
         bad_tenant = client.post(
