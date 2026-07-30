@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     jsonl_log_path: str = "data/runs.jsonl"
 
     # Feedback (v0.2)
-    feedback_log_path: str = "data/feedback.jsonl"
+    feedback_log_path: str = "data/feedback.jsonl"  # JSONL fallback when Postgres down
 
     # Dev/test: force reviewer ok=False (loop smoke). Default off.
     force_reviewer_insufficient: bool = False
@@ -48,8 +48,8 @@ class Settings(BaseSettings):
     # Token/cost lite: fill Meta.usage when engine omitted it
     usage_estimate_enabled: bool = True
 
-    # Shared Postgres URL: pgvector docs + T2SQL sales + RunStore runs.
-    # Empty URL => keyword RAG + SQLite T2SQL + SQLite RunStore.
+    # Shared Postgres URL: pgvector docs + T2SQL sales + RunStore + Feedback.
+    # Empty URL => keyword RAG + SQLite T2SQL/RunStore + JSONL feedback.
     vector_database_url: str = ""
     embedding_model: str = "text-embedding-3-small"
 

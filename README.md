@@ -20,7 +20,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 # .env: LLM_API_KEY(선택), VECTOR_DATABASE_URL(선택)
 
-# (권장) 공유 Postgres: 문서벡터 + sales + RunStore
+# (권장) 공유 Postgres: 문서벡터 + sales + RunStore + Feedback
 docker compose up -d
 
 uvicorn app.main:app --port 8000
@@ -141,12 +141,16 @@ python scripts\smoke_tool_router.py
 
 ## Feedback (v0.2)
 
+완료된(또는 저장된) `run_id`에 대해 사용자 평가를 append 한다.  
+`VECTOR_DATABASE_URL`이 살아 있으면 Postgres `feedback` 테이블,  
+아니면 `data/feedback.jsonl` (gitignore).
+
 ```powershell
+python scripts\smoke_feedback_store.py
 python scripts\smoke_feedback.py
 ```
 
-`POST /v1/feedback` — `rating` 1~5. 없는 `run_id`는 **404** `RUN_NOT_FOUND`.  
-경로: `data/feedback.jsonl` (gitignore).
+`POST /v1/feedback` — `rating` 1~5. 없는 `run_id`는 **404** `RUN_NOT_FOUND`.
 
 ## Observability (optional)
 

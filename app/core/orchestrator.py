@@ -63,7 +63,7 @@ class Orchestrator:
         self.registry = registry or build_default_registry()
         self.store = store or RunStore(settings=self.settings)
         self.feedback_store = feedback_store or FeedbackStore(
-            self.settings.feedback_log_path
+            settings=self.settings
         )
         self._hitl_locks: Set[str] = set()
         self._lock = threading.Lock()

@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     setup_observability(settings)
     registry = build_default_registry()
     store = RunStore(settings=settings)
-    feedback_store = FeedbackStore(settings.feedback_log_path)
+    feedback_store = FeedbackStore(settings=settings)
     app.state.orchestrator = Orchestrator(
         registry=registry,
         store=store,
