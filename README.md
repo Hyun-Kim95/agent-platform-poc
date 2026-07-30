@@ -84,7 +84,7 @@ T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이�
 Router도 rule-first다. 모호한 질문(키워드 없음 또는 rag+sql 동시)이고
 `LLM_API_KEY` + `RULES_ONLY=false`이면 LLM이 `rag|sql|both`를 고른다.
 
-Guardrail은 `sqlparse`로 주석을 제거한 뒤 SELECT/금지 키워드/테이블 allowlist/LIMIT를 검사한다.
+Guardrail은 sqlparse(주석) + **sqlglot AST**(서브쿼리·UNION·함수·테이블 allowlist·LIMIT)로 검사한다.
 개선: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, citation 헬퍼 공유.
 
 ### Vector RAG (pgvector, 옵션)
@@ -159,6 +159,6 @@ python scripts\smoke_usage.py
 - Usage/cost는 학습용 추정·단가표. 청구 SSOT 아님
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - Reviewer 강제 실패는 tenant/env `force_reviewer_insufficient` (쿼리 매직 문자열 없음)
-- `hybrid_rag`: keyword 청크 + SQLite T2SQL. Guardrail은 **sqlparse**. T2SQL/Router는 rule-first + 선택적 LLM. 문서 벡터는 옵션 **pgvector**(없으면 keyword)
+- `hybrid_rag`: keyword 청크 + SQLite T2SQL. Guardrail은 sqlparse+**sqlglot AST**. T2SQL/Router는 rule-first + 선택적 LLM. 문서 벡터는 옵션 **pgvector**(없으면 keyword)
 - 개선: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, `app/core/citations` 공유
 - Python 3.9.0이면 pydantic 2.10.x 핀 필요 (`requirements.txt`). 가능하면 3.11+ 권장

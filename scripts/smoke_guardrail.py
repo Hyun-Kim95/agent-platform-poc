@@ -1,4 +1,4 @@
-"""Unit smoke for sqlparse Guardrail (no HTTP)."""
+"""Unit smoke for sqlparse + sqlglot Guardrail (no HTTP)."""
 
 from __future__ import annotations
 
@@ -24,10 +24,10 @@ def expect(ok: bool, sql: str, label: str) -> None:
 
 
 def main() -> None:
-    # Comment contains DROP — must PASS (comment-safe)
+    # L3: comments
     expect(
         True,
-        "SELECT region, SUM(amount) AS total FROM sales "
+        "SELECT region, SUM(revenue) AS total FROM sales "
         "GROUP BY region LIMIT 10 -- DROP TABLE sales",
         "comment-with-DROP",
     )
@@ -37,7 +37,7 @@ def main() -> None:
         "block-comment-with-DROP",
     )
 
-    # Real destructive / policy fails
+    # L3 basics
     expect(False, "DROP TABLE sales", "real-DROP")
     expect(False, "SELECT * FROM sales", "no-LIMIT")
     expect(False, "SELECT * FROM orders LIMIT 1", "bad-table")
@@ -46,6 +46,30 @@ def main() -> None:
         False,
         "SELECT * FROM sales; DROP TABLE sales",
         "select-then-DROP",
+    )
+
+    # Happy path with allowlisted agg
+    expect(
+        True,
+        "SELECT SUM(revenue) AS total_revenue FROM sales LIMIT 1",
+        "sum-ok",
+    )
+
+    # P2 AST
+    expect(
+        False,
+        "SELECT * FROM (SELECT * FROM orders) t LIMIT 1",
+        "subquery-orders",
+    )
+    expect(
+        False,
+        "SELECT a FROM sales UNION SELECT b FROM sales LIMIT 1",
+        "union",
+    )
+    expect(
+        False,
+        "SELECT SLEEP(1) FROM sales LIMIT 1",
+        "bad-function",
     )
 
     print("smoke_guardrail: all passed")
