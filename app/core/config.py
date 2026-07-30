@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     rules_only: bool = False
     web_search_provider: str = "tavily"
     web_search_api_key: str = ""
-    run_store_path: str = "data/runs.db"
+    run_store_path: str = "data/runs.db"  # SQLite fallback when Postgres down
     app_version: str = "0.1.0"
 
     # Observability (optional)
@@ -48,8 +48,8 @@ class Settings(BaseSettings):
     # Token/cost lite: fill Meta.usage when engine omitted it
     usage_estimate_enabled: bool = True
 
-    # Shared Postgres URL: pgvector docs + T2SQL sales (fallback: SQLite hybrid.db).
-    # Empty URL => keyword RAG + SQLite T2SQL.
+    # Shared Postgres URL: pgvector docs + T2SQL sales + RunStore runs.
+    # Empty URL => keyword RAG + SQLite T2SQL + SQLite RunStore.
     vector_database_url: str = ""
     embedding_model: str = "text-embedding-3-small"
 

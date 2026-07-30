@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import Settings, get_settings
+from app.core.postgres import connect as pg_connect
+from app.core.postgres import database_url, postgres_available
 
 logger = logging.getLogger(__name__)
 
@@ -34,27 +36,6 @@ def _load_csv_rows(csv_path: Path) -> List[Tuple[str, str, float]]:
 
 def _normalize_sql(sql: str) -> str:
     return (sql or "").strip().rstrip(";").strip()
-
-
-def _pg_connect(url: str):
-    import psycopg
-
-    return psycopg.connect(url)
-
-
-def postgres_available(settings: Optional[Settings] = None) -> bool:
-    cfg = settings or get_settings()
-    url = (cfg.vector_database_url or "").strip()
-    if not url:
-        return False
-    try:
-        with _pg_connect(url) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-        return True
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("sales Postgres unavailable: %s", exc)
-        return False
 
 
 def active_backend(settings: Optional[Settings] = None) -> str:
@@ -90,11 +71,11 @@ def ensure_hybrid_db(
 
 def ensure_sales_postgres(settings: Optional[Settings] = None) -> None:
     cfg = settings or get_settings()
-    url = (cfg.vector_database_url or "").strip()
+    url = database_url(cfg)
     if not url:
         raise RuntimeError("VECTOR_DATABASE_URL is empty")
     rows = _load_csv_rows(DEFAULT_CSV)
-    with _pg_connect(url) as conn:
+    with pg_connect(url) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -137,8 +118,8 @@ def _run_select_postgres(
 ) -> Tuple[List[str], List[Dict[str, Any]]]:
     cfg = settings or get_settings()
     ensure_sales_postgres(cfg)
-    url = (cfg.vector_database_url or "").strip()
-    with _pg_connect(url) as conn:
+    url = database_url(cfg)
+    with pg_connect(url) as conn:
         with conn.cursor() as cur:
             cur.execute(_normalize_sql(sql))
             cols = [d[0] for d in cur.description] if cur.description else []

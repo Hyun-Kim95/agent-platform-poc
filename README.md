@@ -75,8 +75,8 @@ python scripts\smoke_loop.py
 ## Hybrid RAG (v0.2 / v0.3)
 
 문서 검색(keyword 또는 옵션 **pgvector**) + T2SQL(Guardrail)을 한 Envelope로 합친다.
-HITL 기본 off. `VECTOR_DATABASE_URL`이 살아 있으면 **문서 벡터 + sales 테이블**을 같은 Postgres에 둔다.
-URL 비움/PG 다운이면 keyword RAG + SQLite `samples/hybrid.db`(CSV 시드). RunStore는 SQLite.
+HITL 기본 off. `VECTOR_DATABASE_URL`이 살아 있으면 **문서 벡터 + sales + RunStore(runs)** 를 같은 Postgres에 둔다.
+URL 비움/PG 다운이면 keyword RAG + SQLite `samples/hybrid.db`(CSV 시드) + SQLite `data/runs.db`.
 
 T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이면 LLM 초안 → 동일 Guardrail.
 키 없음/실패 시 template fallback. 위험 의도(DROP 등)는 템플릿이 그대로 Guardrail로 보낸다.
@@ -109,6 +109,7 @@ python scripts\smoke_guardrail.py
 python scripts\smoke_small_fixes.py
 python scripts\smoke_vector_rag.py
 python scripts\smoke_sales_pg.py
+python scripts\smoke_run_store.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)
@@ -156,11 +157,11 @@ python scripts\smoke_usage.py
 
 - 프론트·Auth 없음
 - `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl` 재개
-- HITL warm resume는 프로세스 내 MemorySaver; 서버 재시작 후는 SQLite `agent_state` cold path
+- HITL warm resume는 프로세스 내 MemorySaver; 서버 재시작 후는 RunStore(`Postgres` 또는 SQLite) `agent_state` cold path
 - 관측: JSONL + OTel 콘솔 + LangSmith on/off. Collector/평가 파이프라인 없음
 - Usage/cost는 학습용 추정·단가표. 청구 SSOT 아님
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - Reviewer 강제 실패는 tenant/env `force_reviewer_insufficient` (쿼리 매직 문자열 없음)
-- `hybrid_rag`: keyword 청크 + SQLite T2SQL. Guardrail은 sqlparse+**sqlglot AST**. T2SQL/Router는 rule-first + 선택적 LLM. 문서 벡터는 옵션 **pgvector**(없으면 keyword)
+- `hybrid_rag`: keyword/pgvector + T2SQL(sales Postgres|SQLite). Guardrail은 sqlparse+**sqlglot AST**. RunStore도 공유 PG URL(없으면 SQLite)
 - 개선: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, `app/core/citations` 공유
 - Python 3.9.0이면 pydantic 2.10.x 핀 필요 (`requirements.txt`). 가능하면 3.11+ 권장

@@ -12,6 +12,7 @@ from app.api.feedback import router as feedback_router
 from app.api.hitl import router as hitl_router
 from app.core.config import get_settings
 from app.core.orchestrator import Orchestrator
+from app.core.postgres import postgres_available
 from app.core.registry import build_default_registry
 from app.feedback import FeedbackStore
 from app.observability import setup_observability
@@ -23,7 +24,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_observability(settings)
     registry = build_default_registry()
-    store = RunStore(settings.run_store_path)
+    store = RunStore(settings=settings)
     feedback_store = FeedbackStore(settings.feedback_log_path)
     app.state.orchestrator = Orchestrator(
         registry=registry,
@@ -48,4 +49,9 @@ app.include_router(feedback_router)
 @app.get("/health")
 def health() -> Dict[str, Any]:
     settings = get_settings()
-    return {"ok": True, "version": settings.app_version}
+    backend = "postgres" if postgres_available(settings) else "sqlite"
+    return {
+        "ok": True,
+        "version": settings.app_version,
+        "run_store_backend": backend,
+    }
