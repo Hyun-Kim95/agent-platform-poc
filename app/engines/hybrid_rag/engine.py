@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from app.core.citations import citations_or_fallback
+from app.core.config import get_settings
 from app.core.models import (
     Envelope,
     EngineContext,
@@ -33,6 +34,8 @@ class HybridRagEngine:
         )
         citations: List[Dict[str, Any]] = []
         passages: List[Dict[str, Any]] = []
+        rag_source = "none"
+        embed_usage: Optional[TokenUsage] = None
         sql = ""
         sql_source = "template"
         sql_usage: Optional[TokenUsage] = None
@@ -40,7 +43,10 @@ class HybridRagEngine:
         rows: List[Dict[str, Any]] = []
 
         if route in ("rag", "both"):
-            passages = retrieve(ctx.query)
+            passages, rag_source, embed_usage = retrieve(
+                ctx.query,
+                settings=get_settings(),
+            )
             for p in passages:
                 citations.append(dict(p["citation"]))
 
@@ -50,7 +56,10 @@ class HybridRagEngine:
                 rules_only=ctx.rules_only,
             )
             ok, reason = check_sql(sql)
-            usage = merge_usage(route_usage, sql_usage)
+            usage = merge_usage(
+                merge_usage(route_usage, embed_usage),
+                sql_usage,
+            )
             if not ok:
                 return Envelope(
                     trace_id=ctx.trace_id,
@@ -58,7 +67,12 @@ class HybridRagEngine:
                     status=RunStatus.failed,
                     answer=None,
                     citations=citations_or_fallback(citations),
-                    meta=self._meta(ctx, route, usage=usage),
+                    meta=self._meta(
+                        ctx,
+                        route,
+                        usage=usage,
+                        rag_source=rag_source,
+                    ),
                     error=ErrorObject(
                         code="SQL_GUARDRAIL",
                         message=reason or "SQL rejected by guardrail",
@@ -80,7 +94,10 @@ class HybridRagEngine:
                 }
             )
 
-        usage = merge_usage(route_usage, sql_usage)
+        usage = merge_usage(
+            merge_usage(route_usage, embed_usage),
+            sql_usage,
+        )
         answer = synthesize(
             ctx.query,
             route,
@@ -96,7 +113,12 @@ class HybridRagEngine:
             status=RunStatus.completed,
             answer=answer,
             citations=citations_or_fallback(citations),
-            meta=self._meta(ctx, route, usage=usage),
+            meta=self._meta(
+                ctx,
+                route,
+                usage=usage,
+                rag_source=rag_source,
+            ),
             error=None,
             hitl=None,
         )
@@ -107,8 +129,10 @@ class HybridRagEngine:
         route: str,
         *,
         usage: Optional[TokenUsage] = None,
+        rag_source: Optional[str] = None,
     ) -> Meta:
         r = route if route in ("rag", "sql", "both", "clarify") else "both"
+        rs = rag_source if rag_source in ("vector", "keyword", "none") else None
         return Meta(
             engine=self.name,
             tenant_id=ctx.tenant_id,
@@ -117,4 +141,5 @@ class HybridRagEngine:
             thread_id=ctx.thread_id,
             route=r,  # type: ignore[arg-type]
             usage=usage,
+            rag_source=rs,  # type: ignore[arg-type]
         )

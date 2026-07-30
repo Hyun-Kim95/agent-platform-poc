@@ -1,10 +1,16 @@
-"""Keyword + chunk retrieval over samples/docs/*.md."""
+"""Keyword + optional pgvector retrieval over samples/docs/*.md."""
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
+
+from app.core.config import Settings, get_settings
+from app.core.models import TokenUsage
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[3]
 DOCS_DIR = ROOT / "samples" / "docs"
@@ -55,7 +61,7 @@ def _chunk_markdown(path: Path) -> List[Dict[str, Any]]:
     return chunks
 
 
-def retrieve(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+def retrieve_keyword(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     if not DOCS_DIR.is_dir():
         return []
 
@@ -83,3 +89,29 @@ def retrieve(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
 
     scored.sort(key=lambda x: (-x["score"], x["citation"]["ref"]))
     return scored[:top_k]
+
+
+def retrieve(
+    query: str,
+    top_k: int = 3,
+    *,
+    settings: Optional[Settings] = None,
+) -> Tuple[List[Dict[str, Any]], str, Optional[TokenUsage]]:
+    """Return (passages, rag_source, embed_usage_or_none)."""
+    cfg = settings or get_settings()
+    from app.engines.hybrid_rag import vector_store
+
+    if vector_store.available(cfg):
+        try:
+            vector_store.index_docs(settings=cfg, force=False)
+            passages, usage = vector_store.search(
+                query, top_k=top_k, settings=cfg
+            )
+            if passages:
+                return passages, "vector", usage
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("vector retrieve failed, keyword fallback: %s", exc)
+
+    passages = retrieve_keyword(query, top_k=top_k)
+    source = "keyword" if passages else "none"
+    return passages, source, None

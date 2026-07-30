@@ -42,6 +42,7 @@ class Meta(BaseModel):
         Literal["web", "data", "both", "clarify", "rag", "sql"]
     ] = None
     usage: Optional[TokenUsage] = None
+    rag_source: Optional[Literal["vector", "keyword", "none"]] = None
 
 
 class ErrorObject(BaseModel):

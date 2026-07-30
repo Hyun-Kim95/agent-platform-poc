@@ -72,10 +72,11 @@ python scripts\smoke_loop.py
 
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
 
-## Hybrid RAG (v0.2)
+## Hybrid RAG (v0.2 / v0.3 P1)
 
-문서 keyword 검색 + SQLite T2SQL(Guardrail)을 한 Envelope로 합친다.
-HITL 기본 off. DB는 최초 실행 시 `samples/mini.csv`로 `samples/hybrid.db`를 만든다(`*.db` gitignore).
+문서 검색(keyword 또는 옵션 **pgvector**) + SQLite T2SQL(Guardrail)을 한 Envelope로 합친다.
+HITL 기본 off. T2SQL DB는 최초 실행 시 `samples/mini.csv`로 `samples/hybrid.db`를 만든다(`*.db` gitignore).
+RunStore도 SQLite. **문서 벡터만** Postgres+pgvector를 쓴다.
 
 T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이면 LLM 초안 → 동일 Guardrail.
 키 없음/실패 시 template fallback. 위험 의도(DROP 등)는 템플릿이 그대로 Guardrail로 보낸다.
@@ -84,7 +85,20 @@ Router도 rule-first다. 모호한 질문(키워드 없음 또는 rag+sql 동시
 `LLM_API_KEY` + `RULES_ONLY=false`이면 LLM이 `rag|sql|both`를 고른다.
 
 Guardrail은 `sqlparse`로 주석을 제거한 뒤 SELECT/금지 키워드/테이블 allowlist/LIMIT를 검사한다.
-소소: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, citation 헬퍼 공유.
+개선: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, citation 헬퍼 공유.
+
+### Vector RAG (pgvector, 옵션)
+
+```powershell
+docker compose up -d
+# .env: VECTOR_DATABASE_URL, LLM_API_KEY
+pip install -r requirements.txt
+python scripts\index_docs.py
+python scripts\smoke_vector_rag.py
+```
+
+`VECTOR_DATABASE_URL`/키/PG가 없으면 keyword로 fallback.  
+응답 `meta.rag_source` = `vector` | `keyword` | `none`.
 
 ```powershell
 python scripts\smoke_hybrid.py
@@ -92,6 +106,7 @@ python scripts\smoke_t2sql_llm.py
 python scripts\smoke_router_llm.py
 python scripts\smoke_guardrail.py
 python scripts\smoke_small_fixes.py
+python scripts\smoke_vector_rag.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)
@@ -124,15 +139,26 @@ python scripts\smoke_obs.py
 python scripts\smoke_usage.py
 ```
 
+## 전체 스모크 (PoC 마무리)
+
+서버 기동 후 (venv 활성):
+
+```powershell
+.\scripts\smoke_all.ps1
+```
+
+단위 스크립트(`smoke_guardrail`, `smoke_small_fixes`)는 서버 없이 먼저 돌린다.  
+`demo_hitl.py`는 대화형이라 스크립트에 포함하지 않는다.
+
 ## Known limitations
 
-- v0.1: 프론트 없음, Auth 없음, 풀 RAG 없음
-- `multi_agent`는 LangGraph 파이프라인(웹 mock 또는 Tavily + CSV). HITL은 interrupt + `/v1/hitl`로 재개
-- HITL warm resume은 프로세스 내 MemorySaver; 서버 재시작 후에는 SQLite agent_state cold path
-- 관측은 JSONL + OTel 콘솔 + LangSmith on/off 최소셋. Collector/평가 파이프라인 없음
-- Usage/cost는 학습용 추정·단가표. 청구 SSOT 아님. 엔진 LLM 실측은 `app/llm/client` 준비만
+- 프론트·Auth 없음
+- `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl` 재개
+- HITL warm resume는 프로세스 내 MemorySaver; 서버 재시작 후는 SQLite `agent_state` cold path
+- 관측: JSONL + OTel 콘솔 + LangSmith on/off. Collector/평가 파이프라인 없음
+- Usage/cost는 학습용 추정·단가표. 청구 SSOT 아님
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
-- Reviewer 강제 실패는 tenant/env 플래그(`force_reviewer_insufficient`). 쿼리 매직 문자열 없음
-- `hybrid_rag`: rule-first router + keyword 청크 + SQLite Guardrail. T2SQL은 템플릿 + 선택적 LLM(키 있을 때). 벡터DB 없음
-- 계획/API 상세 문서는 로컬 `docs/` only (gitignore)
-- 로컬 Python 3.9.0에서는 pydantic을 2.10.x로 고정해야 FastAPI `/docs`가 동작한다 (requirements.txt 참고). 가능하면 3.11+ 권장.
+- Reviewer 강제 실패는 tenant/env `force_reviewer_insufficient` (쿼리 매직 문자열 없음)
+- `hybrid_rag`: keyword 청크 + SQLite T2SQL. Guardrail은 **sqlparse**. T2SQL/Router는 rule-first + 선택적 LLM. 문서 벡터는 옵션 **pgvector**(없으면 keyword)
+- 개선: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, `app/core/citations` 공유
+- Python 3.9.0이면 pydantic 2.10.x 핀 필요 (`requirements.txt`). 가능하면 3.11+ 권장
