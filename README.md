@@ -72,11 +72,11 @@ python scripts\smoke_loop.py
 
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
 
-## Hybrid RAG (v0.2 / v0.3 P1)
+## Hybrid RAG (v0.2 / v0.3)
 
-문서 검색(keyword 또는 옵션 **pgvector**) + SQLite T2SQL(Guardrail)을 한 Envelope로 합친다.
-HITL 기본 off. T2SQL DB는 최초 실행 시 `samples/mini.csv`로 `samples/hybrid.db`를 만든다(`*.db` gitignore).
-RunStore도 SQLite. **문서 벡터만** Postgres+pgvector를 쓴다.
+문서 검색(keyword 또는 옵션 **pgvector**) + T2SQL(Guardrail)을 한 Envelope로 합친다.
+HITL 기본 off. `VECTOR_DATABASE_URL`이 살아 있으면 **문서 벡터 + sales 테이블**을 같은 Postgres에 둔다.
+URL 비움/PG 다운이면 keyword RAG + SQLite `samples/hybrid.db`(CSV 시드). RunStore는 SQLite.
 
 T2SQL은 기본 템플릿이다. `LLM_API_KEY`가 있고 `RULES_ONLY=false`이면 LLM 초안 → 동일 Guardrail.
 키 없음/실패 시 template fallback. 위험 의도(DROP 등)는 템플릿이 그대로 Guardrail로 보낸다.
@@ -97,8 +97,9 @@ python scripts\index_docs.py
 python scripts\smoke_vector_rag.py
 ```
 
-`VECTOR_DATABASE_URL`/키/PG가 없으면 keyword로 fallback.  
-응답 `meta.rag_source` = `vector` | `keyword` | `none`.
+`VECTOR_DATABASE_URL`/키/PG가 없으면 keyword·SQLite로 fallback.  
+응답 `meta.rag_source` = `vector` | `keyword` | `none`,  
+`meta.sql_backend` = `postgres` | `sqlite`.
 
 ```powershell
 python scripts\smoke_hybrid.py
@@ -107,10 +108,11 @@ python scripts\smoke_router_llm.py
 python scripts\smoke_guardrail.py
 python scripts\smoke_small_fixes.py
 python scripts\smoke_vector_rag.py
+python scripts\smoke_sales_pg.py
 ```
 
 - 문서 질문 → `citations.type=doc` (또는 `no_hit`)
-- 매출/합계 → `sql` citation
+- 매출/합계 → `sql` citation (`sales query (postgres|sqlite/…)`)
 - `DROP` 등 위험 의도 → `status=failed`, `error.code=SQL_GUARDRAIL`
 - `meta.engine=hybrid_rag` (`multi_agent`와 구분)
 

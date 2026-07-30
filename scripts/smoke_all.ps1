@@ -25,7 +25,8 @@ function Invoke-Smoke([string]$Rel) {
 $unit = @(
     "scripts\smoke_guardrail.py",
     "scripts\smoke_small_fixes.py",
-    "scripts\smoke_vector_rag.py"
+    "scripts\smoke_vector_rag.py",
+    "scripts\smoke_sales_pg.py"
 )
 $http = @(
     "scripts\smoke_chat.py",

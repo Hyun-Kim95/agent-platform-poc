@@ -18,17 +18,35 @@ _DANGEROUS = (
     "alter",
 )
 
-_SCHEMA_HINT = (
-    "SQLite table sales(date TEXT, product TEXT, revenue REAL). "
-    "Only this table is allowed."
-)
 
-_SYSTEM = (
-    "You write one SQLite SELECT for analytics. "
-    "Rules: SELECT only; table sales only; must include LIMIT; "
-    "no DDL/DML; no multiple statements; no markdown. "
-    "Reply with SQL only."
-)
+def _schema_and_system(settings: Optional[Settings] = None) -> Tuple[str, str]:
+    from app.engines.hybrid_rag.db import active_backend
+
+    cfg = settings or get_settings()
+    if active_backend(cfg) == "postgres":
+        hint = (
+            "PostgreSQL table sales(date TEXT, product TEXT, "
+            "revenue DOUBLE PRECISION). "
+            "Only this table is allowed."
+        )
+        system = (
+            "You write one PostgreSQL SELECT for analytics. "
+            "Rules: SELECT only; table sales only; must include LIMIT; "
+            "no DDL/DML; no multiple statements; no markdown. "
+            "Reply with SQL only."
+        )
+    else:
+        hint = (
+            "SQLite table sales(date TEXT, product TEXT, revenue REAL). "
+            "Only this table is allowed."
+        )
+        system = (
+            "You write one SQLite SELECT for analytics. "
+            "Rules: SELECT only; table sales only; must include LIMIT; "
+            "no DDL/DML; no multiple statements; no markdown. "
+            "Reply with SQL only."
+        )
+    return hint, system
 
 
 def generate_sql_template(query: str) -> str:
@@ -101,8 +119,9 @@ def generate_sql(
     if not use_llm:
         return template, None, "template"
 
+    hint, system = _schema_and_system(cfg)
     messages = [
-        {"role": "system", "content": _SYSTEM + " " + _SCHEMA_HINT},
+        {"role": "system", "content": system + " " + hint},
         {
             "role": "user",
             "content": "Question: {0}".format(query or ""),

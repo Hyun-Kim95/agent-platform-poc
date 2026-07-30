@@ -43,6 +43,7 @@ class Meta(BaseModel):
     ] = None
     usage: Optional[TokenUsage] = None
     rag_source: Optional[Literal["vector", "keyword", "none"]] = None
+    sql_backend: Optional[Literal["postgres", "sqlite"]] = None
 
 
 class ErrorObject(BaseModel):

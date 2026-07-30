@@ -48,7 +48,8 @@ class Settings(BaseSettings):
     # Token/cost lite: fill Meta.usage when engine omitted it
     usage_estimate_enabled: bool = True
 
-    # Vector RAG (pgvector). Empty URL => keyword-only. T2SQL stays SQLite.
+    # Shared Postgres URL: pgvector docs + T2SQL sales (fallback: SQLite hybrid.db).
+    # Empty URL => keyword RAG + SQLite T2SQL.
     vector_database_url: str = ""
     embedding_model: str = "text-embedding-3-small"
 

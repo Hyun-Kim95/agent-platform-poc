@@ -28,6 +28,7 @@ class HybridRagEngine:
 
     def run(self, ctx: EngineContext) -> Envelope:
         # Hybrid HITL is off by design (H7); ignore tenant.hitl.
+        cfg = get_settings()
         route, route_usage, route_source = route_query(
             ctx.query,
             rules_only=ctx.rules_only,
@@ -39,13 +40,14 @@ class HybridRagEngine:
         sql = ""
         sql_source = "template"
         sql_usage: Optional[TokenUsage] = None
+        sql_backend = hybrid_db.active_backend(cfg)
         columns: List[str] = []
         rows: List[Dict[str, Any]] = []
 
         if route in ("rag", "both"):
             passages, rag_source, embed_usage = retrieve(
                 ctx.query,
-                settings=get_settings(),
+                settings=cfg,
             )
             for p in passages:
                 citations.append(dict(p["citation"]))
@@ -54,8 +56,10 @@ class HybridRagEngine:
             sql, sql_usage, sql_source = generate_sql(
                 ctx.query,
                 rules_only=ctx.rules_only,
+                settings=cfg,
             )
-            ok, reason = check_sql(sql)
+            sql_backend = hybrid_db.active_backend(cfg)
+            ok, reason = check_sql(sql, settings=cfg)
             usage = merge_usage(
                 merge_usage(route_usage, embed_usage),
                 sql_usage,
@@ -72,6 +76,7 @@ class HybridRagEngine:
                         route,
                         usage=usage,
                         rag_source=rag_source,
+                        sql_backend=sql_backend,
                     ),
                     error=ErrorObject(
                         code="SQL_GUARDRAIL",
@@ -80,16 +85,19 @@ class HybridRagEngine:
                             "sql": sql,
                             "sql_source": sql_source,
                             "route_source": route_source,
+                            "sql_backend": sql_backend,
                         },
                     ),
                     hitl=None,
                 )
-            columns, rows = hybrid_db.run_select(sql)
+            columns, rows = hybrid_db.run_select(sql, settings=cfg)
             citations.append(
                 {
                     "type": "sql",
                     "ref": sql,
-                    "title": "hybrid.db query ({0})".format(sql_source),
+                    "title": "sales query ({0}/{1})".format(
+                        sql_backend, sql_source
+                    ),
                     "snippet": "rows={0}".format(len(rows)),
                 }
             )
@@ -118,6 +126,7 @@ class HybridRagEngine:
                 route,
                 usage=usage,
                 rag_source=rag_source,
+                sql_backend=sql_backend,
             ),
             error=None,
             hitl=None,
@@ -130,9 +139,11 @@ class HybridRagEngine:
         *,
         usage: Optional[TokenUsage] = None,
         rag_source: Optional[str] = None,
+        sql_backend: Optional[str] = None,
     ) -> Meta:
         r = route if route in ("rag", "sql", "both", "clarify") else "both"
         rs = rag_source if rag_source in ("vector", "keyword", "none") else None
+        sb = sql_backend if sql_backend in ("postgres", "sqlite") else None
         return Meta(
             engine=self.name,
             tenant_id=ctx.tenant_id,
@@ -142,4 +153,5 @@ class HybridRagEngine:
             route=r,  # type: ignore[arg-type]
             usage=usage,
             rag_source=rs,  # type: ignore[arg-type]
+            sql_backend=sb,  # type: ignore[arg-type]
         )

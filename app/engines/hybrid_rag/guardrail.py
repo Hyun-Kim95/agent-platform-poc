@@ -10,6 +10,8 @@ from sqlglot import exp
 from sqlglot.errors import ParseError
 from sqlparse.tokens import Comment, Keyword
 
+from app.core.config import Settings, get_settings
+
 ALLOWED_TABLES = frozenset({"sales"})
 _FORBIDDEN = frozenset(
     {
@@ -85,9 +87,14 @@ def _sqlparse_gate(text: str) -> Tuple[bool, Optional[str], Optional[str]]:
     return True, None, cleaned
 
 
-def _check_ast(cleaned: str) -> Tuple[bool, Optional[str]]:
+def _check_ast(
+    cleaned: str,
+    *,
+    dialect: str = "sqlite",
+) -> Tuple[bool, Optional[str]]:
+    read = "postgres" if dialect == "postgres" else "sqlite"
     try:
-        tree = sqlglot.parse_one(cleaned, read="sqlite")
+        tree = sqlglot.parse_one(cleaned, read=read)
     except ParseError as exc:
         return False, "parse error: {0}".format(str(exc).splitlines()[0][:160])
 
@@ -144,7 +151,11 @@ def _check_ast(cleaned: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
-def check_sql(sql: str) -> Tuple[bool, Optional[str]]:
+def check_sql(
+    sql: str,
+    *,
+    settings: Optional[Settings] = None,
+) -> Tuple[bool, Optional[str]]:
     """Return (ok, reason). reason is set when ok is False."""
     text = (sql or "").strip()
     if not text:
@@ -154,4 +165,7 @@ def check_sql(sql: str) -> Tuple[bool, Optional[str]]:
     if not ok or cleaned is None:
         return False, reason
 
-    return _check_ast(cleaned)
+    from app.engines.hybrid_rag.db import active_backend
+
+    dialect = active_backend(settings or get_settings())
+    return _check_ast(cleaned, dialect=dialect)
