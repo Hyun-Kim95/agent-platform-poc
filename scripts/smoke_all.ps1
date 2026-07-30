@@ -27,7 +27,8 @@ $unit = @(
     "scripts\smoke_small_fixes.py",
     "scripts\smoke_vector_rag.py",
     "scripts\smoke_sales_pg.py",
-    "scripts\smoke_run_store.py"
+    "scripts\smoke_run_store.py",
+    "scripts\smoke_tool_router.py"
 )
 $http = @(
     "scripts\smoke_chat.py",

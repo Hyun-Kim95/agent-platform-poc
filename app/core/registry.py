@@ -8,6 +8,7 @@ from app.engines.base import AgentEngine
 from app.engines.echo import EchoEngine
 from app.engines.hybrid_rag import HybridRagEngine
 from app.engines.multi_agent import MultiAgentEngine
+from app.engines.tool_router import ToolRouterEngine
 
 
 class EngineRegistry:
@@ -29,4 +30,5 @@ def build_default_registry() -> EngineRegistry:
     reg.register(EchoEngine())
     reg.register(MultiAgentEngine())
     reg.register(HybridRagEngine())
+    reg.register(ToolRouterEngine())
     return reg

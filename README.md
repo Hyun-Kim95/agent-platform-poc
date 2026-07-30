@@ -6,7 +6,7 @@
 ## 목적
 
 - 단일 HTTP API (`/v1/chat`)로 세로 슬라이스 검증
-- 엔진 Registry로 `multi_agent` / `hybrid_rag` / `echo` stub 분기
+- 엔진 Registry로 `multi_agent` / `hybrid_rag` / `tool_router` / `echo` stub 분기
 - `tenant=demo`에서 Human-in-the-loop 승인/수정/거절
 
 ## 빠른 시작
@@ -71,6 +71,17 @@ python scripts\smoke_loop.py
 `reset_compiled_graph()`는 REPL/단위 테스트용 캐시 리셋이며 API 경로에서는 호출하지 않는다.
 
 `engine=echo`와 `engine=multi_agent` 응답의 `meta.engine`이 서로 다르면 Registry 분기가 동작하는 것이다.
+
+## Tool Router (P3)
+
+`engine=tool_router`: 규칙(±LLM)으로 mock 툴 `calc` / `clock` / `faq`를 고른 뒤 실행한다.
+HITL off. citations `type=tool`. `meta.route` = 단일 툴명 또는 `both` / `none`.
+
+```powershell
+python scripts\smoke_tool_router.py
+# 서버 기동 후
+# POST /v1/chat {"tenant_id":"internal","engine":"tool_router","query":"12+5"}
+```
 
 ## Hybrid RAG (v0.2 / v0.3)
 
@@ -163,5 +174,6 @@ python scripts\smoke_usage.py
 - Feedback는 수집·영속만 (파인튜닝/평가 파이프라인 본문 없음)
 - Reviewer 강제 실패는 tenant/env `force_reviewer_insufficient` (쿼리 매직 문자열 없음)
 - `hybrid_rag`: keyword/pgvector + T2SQL(sales Postgres|SQLite). Guardrail은 sqlparse+**sqlglot AST**. RunStore도 공유 PG URL(없으면 SQLite)
+- `tool_router`: mock calc/clock/faq, 외부 API 없음
 - 개선: T2SQL 단어경계 오탐 완화, 제목-only 청크 스킵, `app/core/citations` 공유
 - Python 3.9.0이면 pydantic 2.10.x 핀 필요 (`requirements.txt`). 가능하면 3.11+ 권장

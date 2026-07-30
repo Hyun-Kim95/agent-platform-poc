@@ -15,7 +15,7 @@ class RunStatus(str, Enum):
 
 
 class Citation(BaseModel):
-    type: Literal["web", "data", "doc", "sql", "no_hit"]
+    type: Literal["web", "data", "doc", "sql", "tool", "no_hit"]
     ref: str = ""
     title: str = ""
     snippet: Optional[str] = None
@@ -39,7 +39,18 @@ class Meta(BaseModel):
     timeout_ms: int = 120_000
     thread_id: Optional[str] = None
     route: Optional[
-        Literal["web", "data", "both", "clarify", "rag", "sql"]
+        Literal[
+            "web",
+            "data",
+            "both",
+            "clarify",
+            "rag",
+            "sql",
+            "calc",
+            "clock",
+            "faq",
+            "none",
+        ]
     ] = None
     usage: Optional[TokenUsage] = None
     rag_source: Optional[Literal["vector", "keyword", "none"]] = None

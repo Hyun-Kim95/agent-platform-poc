@@ -6,7 +6,9 @@ from typing import Any, Dict, List
 
 from app.core.models import Citation
 
-ALLOWED_CITATION_TYPES = frozenset({"web", "data", "doc", "sql", "no_hit"})
+ALLOWED_CITATION_TYPES = frozenset(
+    {"web", "data", "doc", "sql", "tool", "no_hit"}
+)
 
 
 def to_citation(raw: Dict[str, Any]) -> Citation:
