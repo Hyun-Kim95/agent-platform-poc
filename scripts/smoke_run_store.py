@@ -1,4 +1,4 @@
-"""Smoke RunStore: postgres if URL up, else sqlite."""
+"""Smoke RunStore: postgres if URL up, else sqlite (nested graph_state)."""
 
 from __future__ import annotations
 
@@ -19,13 +19,18 @@ def main() -> int:
     store = RunStore(settings=cfg)
     print("backend=", store.backend)
 
-    rid = "run_smoke_db2_{0}".format(uuid.uuid4().hex[:12])
+    rid = "run_smoke_jsonb_{0}".format(uuid.uuid4().hex[:12])
     now = RunStore.now()
+    nested = {
+        "query": "jsonb smoke",
+        "k": 1,
+        "agent_state": {"route": "both", "hits": [{"n": 1}]},
+    }
     store.save(
         RunRecord(
             run_id=rid,
             status="waiting_human",
-            graph_state={"query": "db2 smoke", "k": 1},
+            graph_state=nested,
             tenant_id="demo",
             engine="multi_agent",
             thread_id=None,
@@ -38,15 +43,20 @@ def main() -> int:
     assert got is not None, "missing row"
     assert got.status == "waiting_human"
     assert got.graph_state.get("k") == 1
+    assert got.graph_state.get("agent_state", {}).get("route") == "both"
+    assert got.graph_state["agent_state"]["hits"][0]["n"] == 1
     assert got.engine == "multi_agent"
 
-    # upsert
     later = RunStore.now()
     store.save(
         RunRecord(
             run_id=rid,
             status="completed",
-            graph_state={"query": "db2 smoke", "k": 2},
+            graph_state={
+                "query": "jsonb smoke",
+                "k": 2,
+                "agent_state": {"route": "data", "hits": []},
+            },
             tenant_id="demo",
             engine="multi_agent",
             thread_id=None,
@@ -59,6 +69,7 @@ def main() -> int:
     assert got2 is not None
     assert got2.status == "completed"
     assert got2.graph_state.get("k") == 2
+    assert got2.graph_state.get("agent_state", {}).get("route") == "data"
     print("smoke_run_store: OK")
     return 0
 

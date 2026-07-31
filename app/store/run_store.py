@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,6 +13,8 @@ from typing import Any, Dict, Optional, Union
 from app.core.config import Settings, get_settings
 from app.core.postgres import connect as pg_connect
 from app.core.postgres import database_url, postgres_available
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
@@ -31,7 +34,8 @@ class RunRecord:
     error_code: Optional[str] = None
 
 
-_DDL = """
+# SQLite: graph_state stays TEXT (JSON string).
+_DDL_SQLITE = """
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY,
     status TEXT NOT NULL,
@@ -44,6 +48,39 @@ CREATE TABLE IF NOT EXISTS runs (
     error_code TEXT
 )
 """
+
+# Postgres: graph_state is JSONB.
+_DDL_POSTGRES = """
+CREATE TABLE IF NOT EXISTS runs (
+    run_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    graph_state JSONB NOT NULL,
+    tenant_id TEXT NOT NULL,
+    engine TEXT NOT NULL,
+    thread_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    error_code TEXT
+)
+"""
+
+
+def _parse_graph_state(raw: Any) -> Dict[str, Any]:
+    """Accept dict (JSONB) or JSON string (TEXT / SQLite)."""
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8")
+    if isinstance(raw, str):
+        obj = json.loads(raw)
+        if isinstance(obj, dict):
+            return obj
+        raise TypeError("graph_state JSON must be an object")
+    raise TypeError(
+        "unsupported graph_state type: {0}".format(type(raw).__name__)
+    )
 
 
 class RunStore:
@@ -66,15 +103,41 @@ class RunStore:
 
     def _init_sqlite(self) -> None:
         with self._connect_sqlite() as conn:
-            conn.execute(_DDL)
+            conn.execute(_DDL_SQLITE)
             conn.commit()
 
     def _init_postgres(self) -> None:
         url = database_url(self.settings)
         with pg_connect(url) as conn:
             with conn.cursor() as cur:
-                cur.execute(_DDL)
+                cur.execute(_DDL_POSTGRES)
+                self._ensure_graph_state_jsonb(cur)
             conn.commit()
+
+    def _ensure_graph_state_jsonb(self, cur) -> None:
+        """Migrate legacy TEXT graph_state → JSONB (no-op if already jsonb)."""
+        cur.execute(
+            """
+            SELECT data_type
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'runs'
+              AND column_name = 'graph_state'
+            """
+        )
+        row = cur.fetchone()
+        if row is None:
+            return
+        data_type = (row[0] or "").lower()
+        if data_type in ("text", "character varying"):
+            logger.info("migrating runs.graph_state %s -> jsonb", data_type)
+            cur.execute(
+                """
+                ALTER TABLE runs
+                ALTER COLUMN graph_state TYPE jsonb
+                USING graph_state::jsonb
+                """
+            )
 
     def _connect_sqlite(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.path))
@@ -82,6 +145,12 @@ class RunStore:
         return conn
 
     def save(self, record: RunRecord) -> None:
+        if self.backend == "postgres":
+            self._save_postgres(record)
+        else:
+            self._save_sqlite(record)
+
+    def _save_sqlite(self, record: RunRecord) -> None:
         payload = (
             record.run_id,
             record.status,
@@ -93,12 +162,6 @@ class RunStore:
             record.updated_at,
             record.error_code,
         )
-        if self.backend == "postgres":
-            self._save_postgres(payload)
-        else:
-            self._save_sqlite(payload)
-
-    def _save_sqlite(self, payload: tuple) -> None:
         with self._connect_sqlite() as conn:
             conn.execute(
                 """
@@ -116,8 +179,21 @@ class RunStore:
             )
             conn.commit()
 
-    def _save_postgres(self, payload: tuple) -> None:
+    def _save_postgres(self, record: RunRecord) -> None:
+        from psycopg.types.json import Json
+
         url = database_url(self.settings)
+        payload = (
+            record.run_id,
+            record.status,
+            Json(record.graph_state),
+            record.tenant_id,
+            record.engine,
+            record.thread_id,
+            record.created_at,
+            record.updated_at,
+            record.error_code,
+        )
         with pg_connect(url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -149,7 +225,7 @@ class RunStore:
         return RunRecord(
             run_id=data["run_id"],
             status=data["status"],
-            graph_state=json.loads(data["graph_state"]),
+            graph_state=_parse_graph_state(data["graph_state"]),
             tenant_id=data["tenant_id"],
             engine=data["engine"],
             thread_id=data["thread_id"],

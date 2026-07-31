@@ -181,6 +181,7 @@ uvicorn app.main:app --port 8000
 - 프론트·Auth 없음
 - `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl`
 - HITL warm resume는 프로세스 내 MemorySaver; 재시작 후는 RunStore(Postgres|SQLite) cold path
+- RunStore: Postgres면 `graph_state`는 JSONB(구 TEXT 컬럼은 기동 시 자동 변환). SQLite는 TEXT JSON
 - SQLite↔Postgres **데이터 마이그레이션 없음** (백엔드 전환 시 이전 run 안 보임)
 - 관측: JSONL + OTel 콘솔 + LangSmith on/off. Collector/평가 파이프라인 없음
 - Usage/cost·Feedback은 학습/수집용. 파인튜닝 파이프라인 아님
