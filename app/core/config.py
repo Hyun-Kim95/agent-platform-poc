@@ -48,10 +48,15 @@ class Settings(BaseSettings):
     # Token/cost lite: fill Meta.usage when engine omitted it
     usage_estimate_enabled: bool = True
 
-    # Shared Postgres URL: pgvector docs + T2SQL sales + RunStore + Feedback.
-    # Empty URL => keyword RAG + SQLite T2SQL/RunStore + JSONL feedback.
+    # Shared Postgres URL: pgvector docs + T2SQL sales + RunStore + Feedback
+    # + LangGraph HITL checkpoints.
+    # Empty URL => keyword RAG + SQLite T2SQL/RunStore + JSONL feedback
+    # + SQLite checkpoints.
     vector_database_url: str = ""
     embedding_model: str = "text-embedding-3-small"
+
+    # LangGraph HITL checkpointer (SQLite file when Postgres URL down)
+    checkpoint_sqlite_path: str = "data/checkpoints.db"
 
 
 class TenantConfig(BaseModel):

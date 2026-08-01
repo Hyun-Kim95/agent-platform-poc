@@ -14,6 +14,12 @@ from app.core.config import get_settings
 from app.core.orchestrator import Orchestrator
 from app.core.postgres import postgres_available
 from app.core.registry import build_default_registry
+from app.engines.multi_agent.checkpoint import (
+    checkpoint_backend,
+    close_checkpointer,
+    get_checkpointer,
+)
+from app.engines.multi_agent.graph import get_compiled_graph
 from app.feedback import FeedbackStore
 from app.observability import setup_observability
 from app.store.run_store import RunStore
@@ -23,6 +29,8 @@ from app.store.run_store import RunStore
 async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_observability(settings)
+    get_checkpointer(settings)
+    get_compiled_graph()
     registry = build_default_registry()
     store = RunStore(settings=settings)
     feedback_store = FeedbackStore(settings=settings)
@@ -33,7 +41,10 @@ async def lifespan(app: FastAPI):
         feedback_store=feedback_store,
     )
     app.state.settings = settings
-    yield
+    try:
+        yield
+    finally:
+        close_checkpointer()
 
 
 app = FastAPI(
@@ -54,4 +65,6 @@ def health() -> Dict[str, Any]:
         "ok": True,
         "version": settings.app_version,
         "run_store_backend": backend,
+        "checkpoint_backend": checkpoint_backend()
+        or ("postgres" if postgres_available(settings) else "sqlite"),
     }

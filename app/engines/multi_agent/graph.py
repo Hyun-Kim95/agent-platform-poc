@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from typing import Any, Dict, Literal, Optional
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
@@ -16,7 +15,6 @@ from app.engines.multi_agent.nodes_search import node_search
 from app.engines.multi_agent.nodes_synthesize import node_synthesize
 from app.engines.multi_agent.state import AgentState
 
-_CHECKPOINTER = MemorySaver()
 _COMPILED = None
 
 
@@ -214,7 +212,9 @@ def build_graph():
 def get_compiled_graph():
     global _COMPILED
     if _COMPILED is None:
-        _COMPILED = build_graph().compile(checkpointer=_CHECKPOINTER)
+        from app.engines.multi_agent.checkpoint import get_checkpointer
+
+        _COMPILED = build_graph().compile(checkpointer=get_checkpointer())
     return _COMPILED
 
 
