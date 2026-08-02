@@ -50,6 +50,7 @@ Stop-Process -Id <PID> -Force
 | 3 | HITL 체크포인트 영속 | `python scripts\smoke_checkpoint.py` |
 | 4 | 문서+SQL hybrid | `python scripts\smoke_hybrid.py` |
 | 5 | 툴 디스패치 | `python scripts\smoke_tool_router.py` (단위) 또는 chat `engine=tool_router` |
+| 6 | 로컬 runs/feedback → PG | `python scripts\migrate_local_to_pg.py --dry-run` |
 
 수동 chat 예:
 
@@ -184,7 +185,7 @@ uvicorn app.main:app --port 8000
 - HITL warm resume: LangGraph checkpointer (Postgres 또는 `data/checkpoints.db`). 재시작 후에도 `thread_id=run_id`로 resume 가능
 - RunStore `agent_state` cold path는 체크포인트가 없을 때의 fallback
 - RunStore: Postgres면 `graph_state`는 JSONB(구 TEXT 컬럼은 기동 시 자동 변환). SQLite는 TEXT JSON
-- SQLite↔Postgres **데이터 마이그레이션 없음** (백엔드 전환 시 이전 run 안 보임)
+- 로컬→PG 일회 이전: `python scripts/migrate_local_to_pg.py` (`--dry-run` 권장). sales/docs/checkpoints는 재시드·재인덱스(체크포인트는 C 범위)
 - 관측: JSONL + OTel 콘솔 + LangSmith on/off. Collector/평가 파이프라인 없음
 - Usage/cost·Feedback은 학습/수집용. 파인튜닝 파이프라인 아님
 - `hybrid_rag` / `tool_router`는 위에 기술한 PoC 범위(외부 상용 툴·완벽 RAG 아님)
