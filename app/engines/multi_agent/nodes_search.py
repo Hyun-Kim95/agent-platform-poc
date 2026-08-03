@@ -7,9 +7,20 @@ from app.engines.multi_agent.tools_search import search_web
 
 
 def node_search(state: AgentState) -> AgentState:
-    hits = search_web(state.get("query") or "", max_results=3)
+    hits, source, mock_reason = search_web(
+        state.get("query") or "", max_results=3
+    )
     state["web_hits"] = hits
+    state["web_search_source"] = source
     citations = list(state.get("citations") or [])
+    risks = list(state.get("risks") or [])
+    risks.append(
+        "web_search_source={0}{1}".format(
+            source,
+            (" reason=" + mock_reason) if mock_reason else "",
+        )
+    )
+    state["risks"] = risks
 
     if not hits:
         citations.append(

@@ -16,6 +16,7 @@ class AgentState(TypedDict, total=False):
     error_code: Optional[str]
     route: str
     web_hits: List[Dict[str, Any]]
+    web_search_source: str  # tavily | mock
     data_summary: str
     data_value: Optional[float]
     citations: List[Dict[str, Any]]

@@ -14,7 +14,7 @@ def synthesize(
     if not results:
         return (
             "맞는 툴을 고르지 못했습니다. "
-            "계산식, 현재 시각, 환불/비밀번호/영업시간 FAQ를 물어보세요."
+            "계산식, 현재 시각, FAQ, 또는 https URL fetch를 물어보세요."
             " (route={0})".format(route_source)
         )
 

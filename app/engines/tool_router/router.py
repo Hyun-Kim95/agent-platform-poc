@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 
 from app.core.config import Settings, get_settings
 from app.core.models import TokenUsage
-from app.engines.tool_router.tools import extract_math_expr
+from app.engines.tool_router.tools import extract_math_expr, extract_url
 from app.llm.client import LlmError, chat_completion
 
 CALC_KEYS = ("계산", "calc", "calculate", "더하기", "곱하기")
@@ -36,12 +36,24 @@ FAQ_KEYS = (
     "문의",
     "support",
 )
+FETCH_KEYS = (
+    "fetch",
+    "가져와",
+    "가져 와",
+    "url 열어",
+    "페이지 열어",
+    "웹페이지",
+    "http://",
+    "https://",
+)
 
 _SYSTEM = (
     "You pick tools for a PoC agent. "
-    "Reply with a comma-separated subset of: calc, clock, faq "
+    "Reply with a comma-separated subset of: calc, clock, faq, fetch "
     "or exactly: none. Max two tools. No explanation."
 )
+
+_ALLOWED = ("calc", "clock", "faq", "fetch")
 
 
 def _has_any(query: str, keys: tuple) -> bool:
@@ -58,6 +70,8 @@ def detect_tools_rules(query: str) -> List[str]:
         found.append("clock")
     if _has_any(query, FAQ_KEYS):
         found.append("faq")
+    if extract_url(query) or _has_any(query, FETCH_KEYS):
+        found.append("fetch")
     return found[:2]
 
 
@@ -77,7 +91,7 @@ def _parse_tools(text: str) -> Optional[List[str]]:
     out: List[str] = []
     for p in parts:
         p = p.strip()
-        if p in ("calc", "clock", "faq") and p not in out:
+        if p in _ALLOWED and p not in out:
             out.append(p)
         if len(out) >= 2:
             break

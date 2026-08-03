@@ -53,6 +53,7 @@ Stop-Process -Id <PID> -Force
 | 3 | HITL 체크포인트 영속 | `python scripts\smoke_checkpoint.py` |
 | 4 | 문서+SQL hybrid | `python scripts\smoke_hybrid.py` |
 | 5 | 툴 디스패치 | `python scripts\smoke_tool_router.py` (단위) 또는 chat `engine=tool_router` |
+| 5b | 웹검색 mock/Tavily 구분 | `python scripts\smoke_web_search.py` |
 | 6 | 로컬 runs/feedback → PG | `python scripts\migrate_local_to_pg.py --dry-run` |
 | 7 | 얇은 채팅/HITL UI | 브라우저 `http://127.0.0.1:8000/ui` |
 
@@ -60,6 +61,7 @@ Stop-Process -Id <PID> -Force
 
 ```json
 {"tenant_id":"internal","engine":"tool_router","query":"12+5 계산"}
+{"tenant_id":"internal","engine":"tool_router","query":"https://example.com 가져와"}
 {"tenant_id":"internal","engine":"hybrid_rag","query":"매출 합계는?"}
 {"tenant_id":"demo","engine":"multi_agent","query":"웹과 CSV를 섞은 질문"}
 ```
@@ -105,11 +107,15 @@ python scripts\smoke_loop.py
 
 ## Tool Router (P3)
 
-`engine=tool_router`: 규칙(±LLM)으로 mock 툴 `calc` / `clock` / `faq`를 고른 뒤 실행한다.
+`engine=tool_router`: 규칙(±LLM)으로 `calc` / `clock` / `faq`(로컬) + **`fetch`(실 HTTP GET, SSRF 가드)** 를 고른 뒤 실행한다.
 HITL off. citations `type=tool`. `meta.route` = 단일 툴명 또는 `both` / `none`.
+
+`multi_agent` 웹검색: `WEB_SEARCH_API_KEY`가 있으면 Tavily, 없으면 mock.
+응답 `meta.web_search_source`가 `tavily` | `mock`으로 구분된다.
 
 ```powershell
 python scripts\smoke_tool_router.py
+python scripts\smoke_web_search.py
 ```
 
 ## Hybrid RAG (v0.2 / v0.3)

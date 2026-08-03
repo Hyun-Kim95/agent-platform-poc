@@ -29,6 +29,7 @@ $unit = @(
     "scripts\smoke_sales_pg.py",
     "scripts\smoke_run_store.py",
     "scripts\smoke_tool_router.py",
+    "scripts\smoke_web_search.py",
     "scripts\smoke_feedback_store.py",
     "scripts\smoke_checkpoint.py"
 )

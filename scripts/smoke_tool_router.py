@@ -59,6 +59,19 @@ def main() -> int:
     assert "calc" in refs and "clock" in refs
     print("OK both", both.answer)
 
+    fetch = eng.run(_ctx("https://example.com 페이지 가져와"))
+    assert fetch.meta.route == "fetch"
+    assert any(c.type == "tool" and c.ref == "fetch" for c in fetch.citations)
+    assert "example.com" in (fetch.answer or "").lower()
+    print("OK fetch", (fetch.answer or "")[:120])
+
+    blocked = eng.run(_ctx("http://127.0.0.1/ 가져와"))
+    assert blocked.meta.route == "fetch"
+    assert any(
+        c.type == "no_hit" and c.ref == "fetch" for c in blocked.citations
+    ) or "blocked" in (blocked.answer or "").lower()
+    print("OK fetch ssrf", blocked.answer)
+
     print("smoke_tool_router: OK")
     return 0
 

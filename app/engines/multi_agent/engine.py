@@ -108,7 +108,7 @@ class MultiAgentEngine:
                         status=RunStatus.completed,
                         answer=values.get("answer") or "Rejected by human.",
                         citations=self._citations(values),
-                        meta=self._meta(ctx, values.get("route")),
+                        meta=self._meta(ctx, values.get("route"), values),
                         error=None,
                         hitl=None,
                     ),
@@ -143,7 +143,7 @@ class MultiAgentEngine:
                     status=RunStatus.completed,
                     answer="Rejected by human.",
                     citations=self._citations(state),
-                    meta=self._meta(ctx, state.get("route")),
+                    meta=self._meta(ctx, state.get("route"), state),
                     error=None,
                     hitl=None,
                 ),
@@ -190,7 +190,7 @@ class MultiAgentEngine:
                 status=RunStatus.failed,
                 answer=None,
                 citations=[],
-                meta=self._meta(ctx, state.get("route")),
+                meta=self._meta(ctx, state.get("route"), state),
                 error=ErrorObject(
                     code="INVALID_DECISION",
                     message="Unknown decision={0}".format(decision),
@@ -210,7 +210,7 @@ class MultiAgentEngine:
             status=RunStatus.waiting_human,
             answer=answer,
             citations=self._citations(state),
-            meta=self._meta(ctx, state.get("route")),
+            meta=self._meta(ctx, state.get("route"), state),
             error=None,
             hitl=HitlView(
                 required=True,
@@ -236,7 +236,7 @@ class MultiAgentEngine:
             status=RunStatus.failed,
             answer=None,
             citations=self._citations(state),
-            meta=self._meta(ctx, state.get("route")),
+            meta=self._meta(ctx, state.get("route"), state),
             error=ErrorObject(code=code, message=message),
             hitl=None,
         )
@@ -254,13 +254,23 @@ class MultiAgentEngine:
             status=status,
             answer=state.get("answer") or "",
             citations=self._citations(state),
-            meta=self._meta(ctx, state.get("route")),
+            meta=self._meta(ctx, state.get("route"), state),
             error=None,
             hitl=hitl,
         )
 
-    def _meta(self, ctx: EngineContext, route: Optional[str]) -> Meta:
+    def _meta(
+        self,
+        ctx: EngineContext,
+        route: Optional[str],
+        state: Optional[AgentState] = None,
+    ) -> Meta:
         r = route if route in ("web", "data", "both", "clarify") else "both"
+        src = None
+        if state is not None:
+            raw = state.get("web_search_source")
+            if raw in ("tavily", "mock"):
+                src = raw
         return Meta(
             engine=self.name,
             tenant_id=ctx.tenant_id,
@@ -268,6 +278,7 @@ class MultiAgentEngine:
             timeout_ms=ctx.timeout_ms,
             thread_id=ctx.thread_id,
             route=r,
+            web_search_source=src,
         )
 
     def _citations(self, state: AgentState) -> List[Citation]:

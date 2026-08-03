@@ -49,12 +49,14 @@ class Meta(BaseModel):
             "calc",
             "clock",
             "faq",
+            "fetch",
             "none",
         ]
     ] = None
     usage: Optional[TokenUsage] = None
     rag_source: Optional[Literal["vector", "keyword", "none"]] = None
     sql_backend: Optional[Literal["postgres", "sqlite"]] = None
+    web_search_source: Optional[Literal["tavily", "mock"]] = None
 
 
 class ErrorObject(BaseModel):
