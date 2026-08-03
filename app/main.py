@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.chat import router as chat_router
 from app.api.feedback import router as feedback_router
@@ -23,6 +25,8 @@ from app.engines.multi_agent.graph import get_compiled_graph
 from app.feedback import FeedbackStore
 from app.observability import setup_observability
 from app.store.run_store import RunStore
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 @asynccontextmanager
@@ -68,3 +72,12 @@ def health() -> Dict[str, Any]:
         "checkpoint_backend": checkpoint_backend()
         or ("postgres" if postgres_available(settings) else "sqlite"),
     }
+
+
+# After API routes: /ui/ -> index.html (html=True)
+if STATIC_DIR.is_dir():
+    app.mount(
+        "/ui",
+        StaticFiles(directory=str(STATIC_DIR), html=True),
+        name="ui",
+    )

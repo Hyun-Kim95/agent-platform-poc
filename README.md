@@ -26,6 +26,9 @@ docker compose up -d
 uvicorn app.main:app --port 8000
 ```
 
+브라우저 데모 UI: [http://127.0.0.1:8000/ui](http://127.0.0.1:8000/ui)  
+(`tenant=demo` → HITL Approve / Revise / Reject)
+
 `VECTOR_DATABASE_URL`이 비어 있거나 PG가 다운이면 keyword RAG + SQLite T2SQL + SQLite RunStore로 fallback한다.  
 호스트 포트는 `55432` (`docker-compose.yml`).
 
@@ -51,6 +54,7 @@ Stop-Process -Id <PID> -Force
 | 4 | 문서+SQL hybrid | `python scripts\smoke_hybrid.py` |
 | 5 | 툴 디스패치 | `python scripts\smoke_tool_router.py` (단위) 또는 chat `engine=tool_router` |
 | 6 | 로컬 runs/feedback → PG | `python scripts\migrate_local_to_pg.py --dry-run` |
+| 7 | 얇은 채팅/HITL UI | 브라우저 `http://127.0.0.1:8000/ui` |
 
 수동 chat 예:
 
@@ -180,7 +184,7 @@ uvicorn app.main:app --port 8000
 
 ## Known limitations
 
-- 프론트·Auth 없음
+- 프론트는 React 없음. PoC용 정적 UI만 `/ui` (Auth·스트리밍 없음)
 - `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl`
 - HITL warm resume: LangGraph checkpointer (Postgres 또는 `data/checkpoints.db`). 재시작 후에도 `thread_id=run_id`로 resume 가능
 - RunStore `agent_state` cold path는 체크포인트가 없을 때의 fallback

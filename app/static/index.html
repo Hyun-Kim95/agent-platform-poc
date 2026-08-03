@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Platform PoC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Agent Platform PoC</h1>
+        <p>
+          같은 서버의 <code>/v1/chat</code> · <code>/v1/hitl</code>을 호출하는
+          얇은 데모 UI입니다. HITL은 tenant <code>demo</code>에서 확인하세요.
+        </p>
+      </header>
+
+      <section class="panel" aria-label="chat form">
+        <div class="row">
+          <div>
+            <label for="tenant">tenant_id</label>
+            <input id="tenant" value="demo" autocomplete="off" />
+          </div>
+          <div>
+            <label for="engine">engine (비우면 tenant 기본)</label>
+            <select id="engine">
+              <option value="multi_agent" selected>multi_agent</option>
+              <option value="echo">echo</option>
+              <option value="hybrid_rag">hybrid_rag</option>
+              <option value="tool_router">tool_router</option>
+              <option value="">(tenant default)</option>
+            </select>
+          </div>
+        </div>
+        <label for="query">query</label>
+        <textarea id="query">
+웹 뉴스와 samples/mini.csv 매출을 함께 요약해 줘.</textarea
+        >
+        <div class="actions">
+          <button type="button" id="send">Send chat</button>
+        </div>
+      </section>
+
+      <section id="result" class="panel hidden" aria-live="polite">
+        <div class="meta">
+          <span id="badge" class="badge idle">idle</span>
+          <span id="meta"></span>
+        </div>
+        <div id="error-box" class="error-box"></div>
+        <div id="preview" class="preview"></div>
+        <div id="answer" class="answer"></div>
+        <ul id="citations" class="citations"></ul>
+
+        <div id="hitl-panel" class="hidden">
+          <div class="actions">
+            <button type="button" id="approve">Approve</button>
+            <button type="button" id="revise" class="secondary">Revise…</button>
+            <button type="button" id="reject" class="danger">Reject</button>
+          </div>
+          <div id="revise-extra" class="hitl-extra">
+            <label for="feedback">feedback (revise 필수)</label>
+            <textarea id="feedback" placeholder="무엇을 다시 볼까요?"></textarea>
+            <label for="revise-target">revise_target (선택)</label>
+            <select id="revise-target">
+              <option value="">both</option>
+              <option value="search">search</option>
+              <option value="analyst">analyst</option>
+            </select>
+            <div class="actions">
+              <button type="button" id="confirm-revise">Send revise</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>
