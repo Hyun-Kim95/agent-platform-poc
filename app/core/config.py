@@ -35,8 +35,9 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = False
     langsmith_project: str = "agent-platform-poc"
     otel_enabled: bool = False
-    otel_exporter: Literal["console", "none"] = "console"
+    otel_exporter: Literal["console", "none", "otlp"] = "console"
     otel_span_processor: Literal["simple", "batch"] = "simple"
+    otel_exporter_endpoint: str = "http://127.0.0.1:4318/v1/traces"
     jsonl_log_path: str = "data/runs.jsonl"
 
     # Feedback (v0.2)

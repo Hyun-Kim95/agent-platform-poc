@@ -56,15 +56,40 @@ def _setup_otel(settings: Settings) -> None:
 
     resource = Resource.create({"service.name": "agent-platform-poc"})
     provider = TracerProvider(resource=resource)
-    if settings.otel_exporter == "console":
+    mode = (settings.otel_exporter or "console").lower()
+    exporter = None
+
+    if mode == "console":
         exporter = ConsoleSpanExporter()
-        if settings.otel_span_processor == "batch":
-            provider.add_span_processor(BatchSpanProcessor(exporter))
-        else:
-            # simple: see spans immediately while learning
-            provider.add_span_processor(SimpleSpanProcessor(exporter))
+    elif mode == "otlp":
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+        except ImportError:
+            _logger.warning(
+                "otlp exporter not installed; pip install "
+                "opentelemetry-exporter-otlp-proto-http"
+            )
+            return
+        endpoint = (settings.otel_exporter_endpoint or "").strip() or (
+            "http://127.0.0.1:4318/v1/traces"
+        )
+        exporter = OTLPSpanExporter(endpoint=endpoint)
+    else:
+        _logger.warning("unknown OTEL_EXPORTER=%s; OTel skipped", mode)
+        return
+
+    if settings.otel_span_processor == "batch":
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+    else:
+        # simple: see spans immediately while learning
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+
     trace.set_tracer_provider(provider)
     _logger.info(
-        "OTel console exporter enabled (processor=%s)",
+        "OTel exporter=%s processor=%s endpoint=%s",
+        mode,
         settings.otel_span_processor,
+        settings.otel_exporter_endpoint if mode == "otlp" else "-",
     )

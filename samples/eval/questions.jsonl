@@ -1,0 +1,7 @@
+{"id":"q1","tenant_id":"internal","engine":"echo","query":"ping eval","expect":{"status":"completed","keywords_any":["ping","echo","eval"]}}
+{"id":"q2","tenant_id":"internal","engine":"tool_router","query":"12+5 계산해줘","expect":{"status":"completed","citation_types":["tool"],"keywords_any":["17"]}}
+{"id":"q3","tenant_id":"internal","engine":"tool_router","query":"지금 시각 알려줘","expect":{"status":"completed","citation_types":["tool"],"keywords_any":["UTC","local"]}}
+{"id":"q4","tenant_id":"internal","engine":"tool_router","query":"https://example.com 가져와","expect":{"status":"completed","citation_types":["tool"],"keywords_any":["example"]}}
+{"id":"q5","tenant_id":"internal","engine":"hybrid_rag","query":"환불 정책이 어떻게 되나요?","expect":{"status":"completed","citation_types":["doc"],"keywords_any":["환불"]}}
+{"id":"q6","tenant_id":"internal","engine":"hybrid_rag","query":"매출 합계는?","expect":{"status":"completed","citation_types":["sql"],"keywords_any":["revenue","합","sales"]}}
+{"id":"q7","tenant_id":"internal","engine":"multi_agent","query":"samples/mini.csv 기준 매출 합계를 알려줘.","expect":{"status":"completed","citation_types":["data"],"keywords_any":["매출","합","revenue"]}}

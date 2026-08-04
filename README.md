@@ -175,13 +175,25 @@ python scripts\smoke_feedback.py
 ## Observability (optional)
 
 - **JSONL:** `data/runs.jsonl`
-- **OTel:** 기본 off. `OTEL_ENABLED=true`면 콘솔 span
+- **OTel:** 기본 off. `OTEL_ENABLED=true` + `OTEL_EXPORTER=console` → 콘솔 span
+- **OTLP:** `docker compose up -d`에 Jaeger 포함.  
+  `OTEL_EXPORTER=otlp`, `OTEL_EXPORTER_ENDPOINT=http://127.0.0.1:4318/v1/traces`  
+  UI: [http://127.0.0.1:16686](http://127.0.0.1:16686) (service `agent-platform-poc`)
 - **LangSmith:** 키 있을 때만
 - **Usage:** `meta.usage` (학습용 토큰·비용 추정)
 
 ```powershell
 python scripts\smoke_obs.py
 python scripts\smoke_usage.py
+```
+
+## Eval (Stretch S4)
+
+서버 기동 후 휴리스틱 채점 (`samples/eval/questions.jsonl`):
+
+```powershell
+python scripts\run_eval.py
+# 리포트: data/eval_report.md (gitignore)
 ```
 
 ## 전체 스모크
@@ -204,7 +216,7 @@ uvicorn app.main:app --port 8000
 - RunStore `agent_state` cold path는 체크포인트가 없을 때의 fallback
 - RunStore: Postgres면 `graph_state`는 JSONB(구 TEXT 컬럼은 기동 시 자동 변환). SQLite는 TEXT JSON
 - 로컬→PG 일회 이전: `python scripts/migrate_local_to_pg.py` (`--dry-run` 권장). sales/docs/checkpoints는 재시드·재인덱스(체크포인트는 C 범위)
-- 관측: JSONL + OTel 콘솔 + LangSmith on/off. Collector/평가 파이프라인 없음
+- 관측: JSONL + OTel(console|otlp→Jaeger) + LangSmith on/off. 휴리스틱 eval은 `run_eval.py`
 - Usage/cost·Feedback은 학습/수집용. 파인튜닝 파이프라인 아님
 - `hybrid_rag` / `tool_router`는 위에 기술한 PoC 범위(외부 상용 툴·완벽 RAG 아님)
 - Python 3.9.0이면 pydantic 2.10.x 핀 필요. 가능하면 3.11+ 권장
