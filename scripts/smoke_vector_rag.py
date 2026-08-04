@@ -23,11 +23,11 @@ def main() -> int:
         print("SKIP: pgvector or LLM key unavailable")
         return 0
 
-    passages, source, _usage = retrieve(
+    passages, source, _usage, meta = retrieve(
         "환불은 며칠 안에 되나요?",
         settings=cfg,
     )
-    print("source=", source, "n=", len(passages))
+    print("source=", source, "n=", len(passages), "meta=", meta)
     assert source == "vector", source
     assert passages, "expected doc hits"
     assert passages[0]["citation"]["type"] == "doc"

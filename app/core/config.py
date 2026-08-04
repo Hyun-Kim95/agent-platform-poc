@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     vector_database_url: str = ""
     embedding_model: str = "text-embedding-3-small"
 
+    # hybrid_rag Stretch S3: chunk / retrieve / rerank / collection
+    rag_chunk_size: int = 0  # 0 = heading-only (legacy)
+    rag_chunk_overlap: int = 64
+    rag_top_k: int = 3
+    rag_candidate_k: int = 12
+    rag_rerank: bool = True
+    rag_collection: str = ""  # empty = all collections
+
     # LangGraph HITL checkpointer (SQLite file when Postgres URL down)
     checkpoint_sqlite_path: str = "data/checkpoints.db"
 

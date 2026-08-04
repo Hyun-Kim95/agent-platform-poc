@@ -37,6 +37,7 @@ class HybridRagEngine:
         passages: List[Dict[str, Any]] = []
         rag_source = "none"
         embed_usage: Optional[TokenUsage] = None
+        rag_bits: Dict[str, Any] = {}
         sql = ""
         sql_source = "template"
         sql_usage: Optional[TokenUsage] = None
@@ -45,7 +46,7 @@ class HybridRagEngine:
         rows: List[Dict[str, Any]] = []
 
         if route in ("rag", "both"):
-            passages, rag_source, embed_usage = retrieve(
+            passages, rag_source, embed_usage, rag_bits = retrieve(
                 ctx.query,
                 settings=cfg,
             )
@@ -77,6 +78,9 @@ class HybridRagEngine:
                         usage=usage,
                         rag_source=rag_source,
                         sql_backend=sql_backend,
+                        rag_collection=rag_bits.get("rag_collection"),
+                        chunk_strategy=rag_bits.get("chunk_strategy"),
+                        rag_rerank=rag_bits.get("rag_rerank"),
                     ),
                     error=ErrorObject(
                         code="SQL_GUARDRAIL",
@@ -127,6 +131,9 @@ class HybridRagEngine:
                 usage=usage,
                 rag_source=rag_source,
                 sql_backend=sql_backend,
+                rag_collection=rag_bits.get("rag_collection"),
+                chunk_strategy=rag_bits.get("chunk_strategy"),
+                rag_rerank=rag_bits.get("rag_rerank"),
             ),
             error=None,
             hitl=None,
@@ -140,10 +147,19 @@ class HybridRagEngine:
         usage: Optional[TokenUsage] = None,
         rag_source: Optional[str] = None,
         sql_backend: Optional[str] = None,
+        rag_collection: Optional[str] = None,
+        chunk_strategy: Optional[str] = None,
+        rag_rerank: Optional[str] = None,
     ) -> Meta:
         r = route if route in ("rag", "sql", "both", "clarify") else "both"
         rs = rag_source if rag_source in ("vector", "keyword", "none") else None
         sb = sql_backend if sql_backend in ("postgres", "sqlite") else None
+        cs = (
+            chunk_strategy
+            if chunk_strategy in ("heading", "heading_char")
+            else None
+        )
+        rr = rag_rerank if rag_rerank in ("none", "token_overlap") else None
         return Meta(
             engine=self.name,
             tenant_id=ctx.tenant_id,
@@ -154,4 +170,7 @@ class HybridRagEngine:
             usage=usage,
             rag_source=rs,  # type: ignore[arg-type]
             sql_backend=sb,  # type: ignore[arg-type]
+            rag_collection=rag_collection,
+            chunk_strategy=cs,  # type: ignore[arg-type]
+            rag_rerank=rr,  # type: ignore[arg-type]
         )

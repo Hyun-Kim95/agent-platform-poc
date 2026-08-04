@@ -128,10 +128,18 @@ T2SQL·Router는 rule-first + 선택적 LLM. Guardrail은 sqlparse + **sqlglot A
 
 ### Vector RAG (pgvector, 옵션)
 
+문서 레이아웃: `samples/docs/{collection}/*.md`  
+(`general/shipping.md`, `policy/refund_policy.md`). 루트 `*.md`는 collection=`default`.
+
+Stretch S3: `collection` 컬럼, `RAG_CHUNK_SIZE`/`OVERLAP`, 후보 `RAG_CANDIDATE_K` 후
+토큰 overlap rerank (`meta.rag_rerank`). 필터는 `RAG_COLLECTION`.
+
 ```powershell
 docker compose up -d
 # .env: VECTOR_DATABASE_URL, LLM_API_KEY
-python scripts\index_docs.py
+python scripts\index_docs.py --force
+python scripts\index_docs.py --force --chunk-size 200 --overlap 40
+python scripts\smoke_rag_s3.py
 python scripts\smoke_vector_rag.py
 ```
 

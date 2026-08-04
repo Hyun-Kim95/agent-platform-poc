@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.core.citations import citations_or_fallback, to_citation
-from app.engines.hybrid_rag.rag import DOCS_DIR, _chunk_markdown
+from app.engines.hybrid_rag.rag import _chunk_markdown, iter_doc_files
 from app.engines.hybrid_rag.t2sql import generate_sql_template
 
 
@@ -25,7 +25,7 @@ def main() -> None:
     print("OK  S1 DROP word ->", hard)
 
     # S2: no title-only heading chunks from sample docs
-    for path in sorted(DOCS_DIR.glob("*.md")):
+    for path, _coll in iter_doc_files():
         for ch in _chunk_markdown(path):
             lines = [ln for ln in ch["text"].splitlines() if ln.strip()]
             only_heading = (

@@ -57,6 +57,9 @@ class Meta(BaseModel):
     rag_source: Optional[Literal["vector", "keyword", "none"]] = None
     sql_backend: Optional[Literal["postgres", "sqlite"]] = None
     web_search_source: Optional[Literal["tavily", "mock"]] = None
+    rag_collection: Optional[str] = None
+    chunk_strategy: Optional[Literal["heading", "heading_char"]] = None
+    rag_rerank: Optional[Literal["none", "token_overlap"]] = None
 
 
 class ErrorObject(BaseModel):
