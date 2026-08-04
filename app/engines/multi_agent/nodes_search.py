@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.engines.multi_agent.state import AgentState
+from app.engines.multi_agent.text_sanitize import sanitize_snippet
 from app.engines.multi_agent.tools_search import search_web
 
 
@@ -10,7 +11,15 @@ def node_search(state: AgentState) -> AgentState:
     hits, source, mock_reason = search_web(
         state.get("query") or "", max_results=3
     )
-    state["web_hits"] = hits
+    cleaned = []
+    for h in hits:
+        item = dict(h)
+        item["title"] = sanitize_snippet(item.get("title") or "", max_len=100)
+        item["snippet"] = sanitize_snippet(
+            item.get("snippet") or "", max_len=160
+        )
+        cleaned.append(item)
+    state["web_hits"] = cleaned
     state["web_search_source"] = source
     citations = list(state.get("citations") or [])
     risks = list(state.get("risks") or [])
@@ -22,7 +31,7 @@ def node_search(state: AgentState) -> AgentState:
     )
     state["risks"] = risks
 
-    if not hits:
+    if not cleaned:
         citations.append(
             {
                 "type": "no_hit",
@@ -32,7 +41,7 @@ def node_search(state: AgentState) -> AgentState:
             }
         )
     else:
-        for h in hits:
+        for h in cleaned:
             citations.append(
                 {
                     "type": "web",

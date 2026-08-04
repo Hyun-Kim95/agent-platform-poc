@@ -27,3 +27,5 @@ class AgentState(TypedDict, total=False):
     answer: str
     ok: bool
     revise_target: Optional[str]
+    last_feedback: Optional[str]
+    last_revise_target: Optional[str]

@@ -138,13 +138,13 @@ def build_revise_updates(
         state["data_value"] = None
     citations = [c for c in citations if c.get("type") != "no_hit"]
 
-    if feedback and (target is None or target == "search"):
-        base_q = state.get("query") or ""
-        state["query"] = "{0}\n(human revise: {1})".format(base_q, feedback)
+    # W2.5 H5: keep feedback in risks/hitl only — do not pollute web search query.
 
     state["risks"] = risks
     state["citations"] = citations
     state["revise_target"] = target
+    state["last_feedback"] = feedback or None
+    state["last_revise_target"] = target
     state["answer"] = ""
     state["iteration"] = 0
     state["error_code"] = None

@@ -69,8 +69,15 @@ class ErrorObject(BaseModel):
 
 
 class HitlPreview(BaseModel):
+    """HITL draft preview. summary stays Data-first plain text (compat)."""
+
     summary: str = ""
     risks: List[str] = Field(default_factory=list)
+    route: Optional[str] = None
+    data_summary: Optional[str] = None
+    web_titles: List[str] = Field(default_factory=list)
+    last_feedback: Optional[str] = None
+    last_revise_target: Optional[str] = None
 
 
 HitlAction = Literal["approve", "revise", "reject"]
@@ -82,6 +89,8 @@ class HitlView(BaseModel):
         default_factory=lambda: ["approve", "revise", "reject"]
     )
     preview: Optional[HitlPreview] = None
+    last_feedback: Optional[str] = None
+    last_revise_target: Optional[str] = None
 
 
 class ChatRequest(BaseModel):

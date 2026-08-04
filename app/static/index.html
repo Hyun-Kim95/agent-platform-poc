@@ -54,6 +54,7 @@
           <span id="meta"></span>
         </div>
         <div id="error-box" class="error-box"></div>
+        <div id="last-feedback" class="last-feedback hidden"></div>
         <div id="preview" class="preview"></div>
         <div id="answer" class="answer"></div>
         <ul id="citations" class="citations"></ul>
@@ -67,11 +68,11 @@
           <div id="revise-extra" class="hitl-extra">
             <label for="feedback">feedback (revise 필수)</label>
             <textarea id="feedback" placeholder="무엇을 다시 볼까요?"></textarea>
-            <label for="revise-target">revise_target (선택)</label>
+            <label for="revise-target">revise_target</label>
             <select id="revise-target">
-              <option value="">both</option>
-              <option value="search">search</option>
-              <option value="analyst">analyst</option>
+              <option value="analyst" selected>analyst (data 다시)</option>
+              <option value="">both (search+analyst)</option>
+              <option value="search">search (web 다시)</option>
             </select>
             <div class="actions">
               <button type="button" id="confirm-revise">Send revise</button>

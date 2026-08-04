@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.engines.multi_agent.state import AgentState
+from app.engines.multi_agent.text_sanitize import sanitize_snippet
 
 
 def node_reviewer(state: AgentState) -> AgentState:
@@ -32,25 +33,44 @@ def node_reviewer(state: AgentState) -> AgentState:
             risks.append("missing data citations for data/both route")
             ok = False
 
-    web_bits = []
+    web_lines = []
     for c in citations:
-        if c.get("type") == "web":
-            web_bits.append(
-                "- {0}: {1}".format(
-                    c.get("title") or "", (c.get("snippet") or "")[:160]
-                )
-            )
+        if c.get("type") != "web":
+            continue
+        title = sanitize_snippet(c.get("title") or "", max_len=80) or "(untitled)"
+        snip = sanitize_snippet(c.get("snippet") or "", max_len=80)
+        if snip and snip != "(encoding unclear)":
+            web_lines.append("- {0}: {1}".format(title, snip))
+        else:
+            web_lines.append("- {0}".format(title))
 
     data_line = state.get("data_summary") or "no data summary"
     draft_parts = [
-        "Route: {0}".format(route),
-        "Web notes:",
-        "\n".join(web_bits) if web_bits else "(none)",
-        "Data: {0}".format(data_line),
-        "Review ok: {0}".format(ok),
+        "### Data",
+        data_line,
+        "",
+        "### Route",
+        str(route),
+        "",
+        "### Web (short)",
+        "\n".join(web_lines) if web_lines else "(none)",
+        "",
+        "### Review",
+        "ok: {0}".format(ok),
     ]
+    if state.get("last_feedback"):
+        draft_parts.extend(
+            [
+                "",
+                "### Last revise feedback",
+                str(state.get("last_feedback")),
+            ]
+        )
+        tgt = state.get("last_revise_target")
+        if tgt:
+            draft_parts.append("target: {0}".format(tgt))
     if risks:
-        draft_parts.append("Risks: {0}".format("; ".join(risks)))
+        draft_parts.extend(["", "### Risks", "; ".join(risks)])
 
     state["draft"] = "\n".join(draft_parts)
     state["risks"] = risks

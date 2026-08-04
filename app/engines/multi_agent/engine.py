@@ -24,6 +24,7 @@ from app.engines.multi_agent.graph import (
     thread_config,
 )
 from app.engines.multi_agent.state import AgentState
+from app.engines.multi_agent.text_sanitize import sanitize_snippet
 
 RunResult = Tuple[Envelope, Dict[str, Any]]
 
@@ -200,10 +201,43 @@ class MultiAgentEngine:
             state,
         )
 
+    def _build_hitl_preview(self, state: AgentState) -> HitlPreview:
+        route = state.get("route") or "both"
+        data = state.get("data_summary") or "no data summary"
+        web_titles = []
+        for c in state.get("citations") or []:
+            if c.get("type") != "web":
+                continue
+            t = sanitize_snippet(c.get("title") or "", max_len=80)
+            if t:
+                web_titles.append(t)
+        fb = state.get("last_feedback")
+        tgt = state.get("last_revise_target")
+        lines = [
+            "Data: {0}".format(data),
+            "Route: {0}".format(route),
+            "Web: {0}".format(
+                ", ".join(web_titles[:5]) if web_titles else "(none)"
+            ),
+        ]
+        if fb:
+            lines.append("Last feedback: {0}".format(fb))
+        if tgt:
+            lines.append("Last revise_target: {0}".format(tgt))
+        return HitlPreview(
+            summary="\n".join(lines),
+            risks=list(state.get("risks") or []),
+            route=route,
+            data_summary=data,
+            web_titles=web_titles[:8],
+            last_feedback=fb,
+            last_revise_target=tgt,
+        )
+
     def _waiting_envelope(self, ctx: EngineContext, state: AgentState) -> Envelope:
         draft = state.get("draft") or ""
         answer = "(draft)\n{0}".format(draft) if draft else "(draft)"
-        risks = list(state.get("risks") or [])
+        preview = self._build_hitl_preview(state)
         return Envelope(
             trace_id=ctx.trace_id,
             run_id=ctx.run_id,
@@ -215,10 +249,9 @@ class MultiAgentEngine:
             hitl=HitlView(
                 required=True,
                 actions=["approve", "revise", "reject"],
-                preview=HitlPreview(
-                    summary=(draft[:500] if draft else "Awaiting human review"),
-                    risks=risks,
-                ),
+                preview=preview,
+                last_feedback=state.get("last_feedback"),
+                last_revise_target=state.get("last_revise_target"),
             ),
         )
 

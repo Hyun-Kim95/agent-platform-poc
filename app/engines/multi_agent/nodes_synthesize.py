@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.engines.multi_agent.state import AgentState
+from app.engines.multi_agent.text_sanitize import sanitize_snippet
 
 
 def node_synthesize(state: AgentState) -> AgentState:
@@ -11,23 +12,7 @@ def node_synthesize(state: AgentState) -> AgentState:
     lines.append("## Answer")
     lines.append("")
 
-    if route in ("web", "both"):
-        lines.append("### Public web summary")
-        hits = state.get("web_hits") or []
-        if not hits:
-            lines.append("No web hits (see citations).")
-        else:
-            for h in hits:
-                lines.append(
-                    "- {0} ({1})".format(
-                        h.get("title") or "untitled", h.get("url") or ""
-                    )
-                )
-                if h.get("snippet"):
-                    lines.append("  {0}".format(h["snippet"][:240]))
-
     if route in ("data", "both"):
-        lines.append("")
         lines.append("### Data (CSV)")
         val = state.get("data_value")
         if val is None:
@@ -38,6 +23,21 @@ def node_synthesize(state: AgentState) -> AgentState:
                     val, state.get("data_summary") or ""
                 )
             )
+        lines.append("")
+
+    if route in ("web", "both"):
+        lines.append("### Public web summary")
+        hits = state.get("web_hits") or []
+        if not hits:
+            lines.append("No web hits (see citations).")
+        else:
+            for h in hits:
+                title = sanitize_snippet(h.get("title") or "untitled", 80)
+                url = h.get("url") or ""
+                lines.append("- {0} ({1})".format(title, url))
+                snip = sanitize_snippet(h.get("snippet") or "", 100)
+                if snip and snip != "(encoding unclear)":
+                    lines.append("  {0}".format(snip))
 
     risks = state.get("risks") or []
     if risks:
@@ -45,6 +45,12 @@ def node_synthesize(state: AgentState) -> AgentState:
         lines.append("### Notes")
         for r in risks:
             lines.append("- {0}".format(r))
+
+    fb = state.get("last_feedback")
+    if fb:
+        lines.append("")
+        lines.append("### Last revise feedback")
+        lines.append(str(fb))
 
     state["answer"] = "\n".join(lines).strip()
     return state
