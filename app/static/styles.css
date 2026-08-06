@@ -241,3 +241,69 @@ button:disabled {
 .hidden {
   display: none !important;
 }
+
+.panel-sub {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.rating-panel {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.rating-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.rate-btn {
+  min-width: 2.4rem;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.rate-btn.selected {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+}
+
+.rating-status {
+  margin-top: 0.65rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.eval-summary {
+  margin-top: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+
+.eval-markdown {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #faf8f3;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 22rem;
+}

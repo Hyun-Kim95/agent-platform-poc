@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api.chat import router as chat_router
+from app.api.eval_report import router as eval_report_router
 from app.api.feedback import router as feedback_router
 from app.api.hitl import router as hitl_router
 from app.core.config import get_settings
@@ -59,6 +60,7 @@ app = FastAPI(
 app.include_router(chat_router)
 app.include_router(hitl_router)
 app.include_router(feedback_router)
+app.include_router(eval_report_router)
 
 
 @app.get("/health")

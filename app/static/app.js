@@ -2,9 +2,11 @@
   "use strict";
 
   var state = {
-    phase: "idle", // idle | loading | waiting_human | completed | error
+    phase: "idle",
     envelope: null,
     httpError: null,
+    selectedRating: null,
+    ratingSubmitted: false,
   };
 
   var els = {
@@ -28,6 +30,13 @@
     feedback: document.getElementById("feedback"),
     reviseTarget: document.getElementById("revise-target"),
     confirmRevise: document.getElementById("confirm-revise"),
+    ratingPanel: document.getElementById("rating-panel"),
+    ratingComment: document.getElementById("rating-comment"),
+    submitRating: document.getElementById("submit-rating"),
+    ratingStatus: document.getElementById("rating-status"),
+    loadEval: document.getElementById("load-eval"),
+    evalSummary: document.getElementById("eval-summary"),
+    evalMarkdown: document.getElementById("eval-markdown"),
   };
 
   function setBusy(busy) {
@@ -36,6 +45,8 @@
     els.revise.disabled = busy;
     els.reject.disabled = busy;
     els.confirmRevise.disabled = busy;
+    els.submitRating.disabled = busy || state.ratingSubmitted;
+    els.loadEval.disabled = busy;
   }
 
   function shortText(s, n) {
@@ -114,6 +125,30 @@
     els.preview.textContent = parts.join("\n");
   }
 
+  function syncRatingButtons() {
+    var buttons = document.querySelectorAll(".rate-btn");
+    buttons.forEach(function (btn) {
+      var n = parseInt(btn.getAttribute("data-rating"), 10);
+      if (state.selectedRating === n) {
+        btn.classList.add("selected");
+      } else {
+        btn.classList.remove("selected");
+      }
+      btn.disabled = state.ratingSubmitted;
+    });
+    els.submitRating.disabled = state.ratingSubmitted;
+    els.ratingComment.disabled = state.ratingSubmitted;
+  }
+
+  function renderRatingPanel() {
+    if (state.phase === "completed" && state.envelope && state.envelope.run_id) {
+      els.ratingPanel.classList.remove("hidden");
+      syncRatingButtons();
+    } else {
+      els.ratingPanel.classList.add("hidden");
+    }
+  }
+
   function render() {
     els.result.classList.remove("hidden");
     els.badge.className = "badge " + state.phase;
@@ -121,6 +156,7 @@
 
     if (state.phase === "error") {
       els.hitlPanel.classList.add("hidden");
+      els.ratingPanel.classList.add("hidden");
       els.preview.textContent = "";
       els.answer.textContent = "";
       els.meta.textContent = "";
@@ -160,11 +196,16 @@
       els.hitlPanel.classList.add("hidden");
       els.reviseExtra.classList.remove("open");
     }
+    renderRatingPanel();
   }
 
   function applyEnvelope(env) {
     state.envelope = env;
     state.httpError = null;
+    state.selectedRating = null;
+    state.ratingSubmitted = false;
+    els.ratingStatus.textContent = "";
+    els.ratingComment.value = "";
     if (env.status === "waiting_human") {
       state.phase = "waiting_human";
     } else if (env.status === "completed") {
@@ -192,11 +233,36 @@
     }
     if (!res.ok) {
       var detail = "";
-      if (data && data.detail) {
+      if (data && data.error && data.error.message) {
+        detail = data.error.code + ": " + data.error.message;
+      } else if (data && data.detail) {
         detail =
           typeof data.detail === "string"
             ? data.detail
             : JSON.stringify(data.detail);
+      }
+      var err = new Error(
+        "HTTP " + res.status + (detail ? " — " + detail : "")
+      );
+      err.payload = data;
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  async function getJson(url) {
+    var res = await fetch(url, { method: "GET" });
+    var data = null;
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = null;
+    }
+    if (!res.ok) {
+      var detail = "";
+      if (data && data.error && data.error.message) {
+        detail = data.error.code + ": " + data.error.message;
       }
       var err = new Error(
         "HTTP " + res.status + (detail ? " — " + detail : "")
@@ -271,6 +337,78 @@
     }
   }
 
+  async function submitRating() {
+    if (!state.envelope || !state.envelope.run_id) {
+      els.ratingStatus.textContent = "No run_id";
+      return;
+    }
+    if (!state.selectedRating) {
+      els.ratingStatus.textContent = "Select rating 1~5";
+      return;
+    }
+    setBusy(true);
+    els.ratingStatus.textContent = "Submitting…";
+    try {
+      var body = {
+        run_id: state.envelope.run_id,
+        rating: state.selectedRating,
+      };
+      var comment = (els.ratingComment.value || "").trim();
+      if (comment) {
+        body.comment = comment;
+      }
+      var res = await postJson("/v1/feedback", body);
+      state.ratingSubmitted = true;
+      els.ratingStatus.textContent =
+        "Saved feedback_id=" +
+        (res.feedback_id || "-") +
+        " · stored_at=" +
+        (res.stored_at || "-");
+      syncRatingButtons();
+    } catch (e) {
+      els.ratingStatus.textContent = e.message || String(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadEvalReport() {
+    setBusy(true);
+    els.evalSummary.textContent = "Loading…";
+    els.evalMarkdown.classList.add("hidden");
+    try {
+      var data = await getJson("/v1/eval/report");
+      var s = data.summary || {};
+      var lines = [
+        "score: " + (s.score_label || "-"),
+        "generated: " + (s.generated || "-"),
+        "path: " + (data.path || "-"),
+      ];
+      if (data.rows_preview && data.rows_preview.length) {
+        lines.push("rows:");
+        data.rows_preview.forEach(function (r) {
+          lines.push("  " + r);
+        });
+      }
+      els.evalSummary.textContent = lines.join("\n");
+      els.evalMarkdown.textContent = data.markdown || "";
+      els.evalMarkdown.classList.remove("hidden");
+    } catch (e) {
+      els.evalSummary.textContent = e.message || String(e);
+      els.evalMarkdown.classList.add("hidden");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  document.querySelectorAll(".rate-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (state.ratingSubmitted) return;
+      state.selectedRating = parseInt(btn.getAttribute("data-rating"), 10);
+      syncRatingButtons();
+    });
+  });
+
   els.send.addEventListener("click", function () {
     sendChat();
   });
@@ -286,5 +424,11 @@
   });
   els.confirmRevise.addEventListener("click", function () {
     sendHitl("revise");
+  });
+  els.submitRating.addEventListener("click", function () {
+    submitRating();
+  });
+  els.loadEval.addEventListener("click", function () {
+    loadEvalReport();
   });
 })();

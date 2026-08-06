@@ -49,7 +49,7 @@ Stop-Process -Id <PID> -Force
 | 2 | 웹검색 출처 | `python scripts\smoke_web_search.py` 또는 chat 후 `meta.web_search_source` | `tavily` 또는 `mock` |
 | 3 | 실툴 fetch | chat `engine=tool_router`, query에 `https://example.com` | citation `type=tool`, SSRF 가드(사설 IP 거부) |
 | 4 | RAG S3 | `python scripts\index_docs.py --force` → `python scripts\smoke_rag_s3.py` | collection · chunk · `meta.rag_rerank` |
-| 5 | Jaeger + eval | `.env`: `OTEL_ENABLED=true`, `OTEL_EXPORTER=otlp` 후 서버 재기동 → chat 1회 → [Jaeger](http://127.0.0.1:16686) · `python scripts\run_eval.py` | service `agent-platform-poc` span · `data/eval_report.md` |
+| 5 | Jaeger + eval | `.env`: `OTEL_ENABLED=true`, `OTEL_EXPORTER=otlp` 후 서버 재기동 → chat 1회 → [Jaeger](http://127.0.0.1:16686) · `python scripts\run_eval.py` → `/ui`에서 Load eval report · completed 후 rating | span · `GET /v1/eval/report` · `POST /v1/feedback` |
 
 수동 chat JSON 예:
 
@@ -77,7 +77,7 @@ Stop-Process -Id <PID> -Force
 | 9 | OTel(console) | `python scripts\smoke_obs.py` |
 | 10 | Eval 리포트 | `python scripts\run_eval.py` |
 | 11 | 로컬→PG 마이그레이션 | `python scripts\migrate_local_to_pg.py --dry-run` |
-| 12 | 얇은 UI | [http://127.0.0.1:8000/ui](http://127.0.0.1:8000/ui) |
+| 12 | 얇은 UI · rating · eval | [http://127.0.0.1:8000/ui](http://127.0.0.1:8000/ui) · completed 후 rating · Load eval report |
 
 혼합 질문·타임아웃·루프:
 
@@ -197,7 +197,7 @@ uvicorn app.main:app --port 8000
 
 ## Known limitations
 
-- 프론트는 React 없음. PoC용 정적 UI만 `/ui` (Auth·스트리밍 없음; feedback/eval UI는 후속)
+- 프론트는 React 없음. PoC용 정적 UI만 `/ui` (Auth·스트리밍 없음). rating=`POST /v1/feedback`, eval 조회=`GET /v1/eval/report`
 - `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl`
 - HITL warm resume: LangGraph checkpointer (Postgres 또는 `data/checkpoints.db`). 재시작 후에도 `thread_id=run_id`로 resume 가능
 - RunStore `agent_state` cold path는 체크포인트가 없을 때의 fallback

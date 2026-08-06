@@ -17,7 +17,8 @@
       <header>
         <h1>Agent Platform PoC</h1>
         <p>
-          같은 서버의 <code>/v1/chat</code> · <code>/v1/hitl</code>을 호출하는
+          같은 서버의 <code>/v1/chat</code> · <code>/v1/hitl</code> ·
+          <code>/v1/feedback</code> · <code>/v1/eval/report</code>를 호출하는
           얇은 데모 UI입니다. HITL은 tenant <code>demo</code>에서 확인하세요.
         </p>
       </header>
@@ -79,6 +80,42 @@
             </div>
           </div>
         </div>
+
+        <div id="rating-panel" class="rating-panel hidden">
+          <h2 class="panel-sub">Rate this run</h2>
+          <p class="hint">POST /v1/feedback · rating 1~5 (completed run)</p>
+          <div class="rating-row" role="group" aria-label="rating">
+            <button type="button" class="rate-btn" data-rating="1">1</button>
+            <button type="button" class="rate-btn" data-rating="2">2</button>
+            <button type="button" class="rate-btn" data-rating="3">3</button>
+            <button type="button" class="rate-btn" data-rating="4">4</button>
+            <button type="button" class="rate-btn" data-rating="5">5</button>
+          </div>
+          <label for="rating-comment">comment (선택)</label>
+          <textarea
+            id="rating-comment"
+            placeholder="한 줄 코멘트"
+          ></textarea>
+          <div class="actions">
+            <button type="button" id="submit-rating">Submit rating</button>
+          </div>
+          <div id="rating-status" class="rating-status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="eval report">
+        <h2 class="panel-sub">Eval report</h2>
+        <p class="hint">
+          GET /v1/eval/report · 파일은
+          <code>python scripts/run_eval.py</code>로 생성
+        </p>
+        <div class="actions">
+          <button type="button" id="load-eval" class="secondary">
+            Load eval report
+          </button>
+        </div>
+        <div id="eval-summary" class="eval-summary"></div>
+        <pre id="eval-markdown" class="eval-markdown hidden"></pre>
       </section>
     </div>
     <script src="./app.js"></script>
