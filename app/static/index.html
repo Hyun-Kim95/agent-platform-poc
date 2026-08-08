@@ -17,9 +17,10 @@
       <header>
         <h1>Agent Platform PoC</h1>
         <p>
-          같은 서버의 <code>/v1/chat</code> · <code>/v1/hitl</code> ·
-          <code>/v1/feedback</code> · <code>/v1/eval/report</code>를 호출하는
-          얇은 데모 UI입니다. HITL은 tenant <code>demo</code>에서 확인하세요.
+          같은 서버의 <code>/v1/chat</code> · <code>/v1/chat/stream</code> ·
+          <code>/v1/hitl</code> · <code>/v1/feedback</code> ·
+          <code>/v1/eval/report</code>를 호출하는 얇은 데모 UI입니다. HITL은
+          tenant <code>demo</code>에서 확인하세요.
         </p>
       </header>
 
@@ -46,6 +47,10 @@
         >
         <div class="actions">
           <button type="button" id="send">Send chat</button>
+          <label class="stream-toggle">
+            <input type="checkbox" id="use-stream" />
+            stream (SSE)
+          </label>
         </div>
       </section>
 
@@ -54,6 +59,7 @@
           <span id="badge" class="badge idle">idle</span>
           <span id="meta"></span>
         </div>
+        <div id="stream-log" class="stream-log hidden" aria-live="polite"></div>
         <div id="error-box" class="error-box"></div>
         <div id="last-feedback" class="last-feedback hidden"></div>
         <div id="preview" class="preview"></div>

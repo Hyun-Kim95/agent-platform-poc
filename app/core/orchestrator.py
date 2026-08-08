@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterator, Optional, Set, Tuple, Union
 
 from app.core.config import Settings, TenantConfig, get_settings, load_tenant
 from app.core.models import (
@@ -275,6 +275,172 @@ class Orchestrator:
             created_at=started_at,
         )
         return result
+
+    def chat_stream(
+        self, req: ChatRequest
+    ) -> Iterator[Tuple[str, Dict[str, Any]]]:
+        """Yield (event_name, data_dict) for SSE (/v1/chat/stream)."""
+        started = time.perf_counter()
+        started_at = RunStore.now()
+        trace_id = new_trace_id()
+        run_id = new_run_id()
+
+        tenant = load_tenant(req.tenant_id)
+        if tenant is None:
+            env = self._failed_early(
+                trace_id=trace_id,
+                run_id=run_id,
+                req=req,
+                code="TENANT_NOT_FOUND",
+                message="Unknown tenant_id={0}".format(req.tenant_id),
+                started=started,
+                timeout_ms=120_000,
+                engine=req.engine or "multi_agent",
+                started_at=started_at,
+            )
+            self._ensure_usage(env, req.query.strip())
+            yield (
+                "run",
+                {
+                    "run_id": run_id,
+                    "trace_id": trace_id,
+                    "engine": env.meta.engine,
+                    "tenant_id": req.tenant_id,
+                },
+            )
+            yield ("envelope", env.model_dump(mode="json"))
+            yield ("done", {})
+            return
+
+        engine_name = req.engine or tenant.default_engine
+        engine = self.registry.get(engine_name)
+        if engine is None:
+            env = self._failed_early(
+                trace_id=trace_id,
+                run_id=run_id,
+                req=req,
+                code="ENGINE_NOT_FOUND",
+                message="Unknown engine={0}".format(engine_name),
+                started=started,
+                timeout_ms=tenant.timeout_ms,
+                engine=engine_name,
+                tenant=tenant,
+                started_at=started_at,
+            )
+            self._ensure_usage(env, req.query.strip())
+            yield (
+                "run",
+                {
+                    "run_id": run_id,
+                    "trace_id": trace_id,
+                    "engine": engine_name,
+                    "tenant_id": tenant.tenant_id,
+                },
+            )
+            yield ("envelope", env.model_dump(mode="json"))
+            yield ("done", {})
+            return
+
+        rules_only = tenant.rules_only or self.settings.rules_only
+        force_insuf = bool(tenant.force_reviewer_insufficient) or bool(
+            self.settings.force_reviewer_insufficient
+        )
+        ctx = EngineContext(
+            tenant_id=tenant.tenant_id,
+            query=req.query.strip(),
+            thread_id=req.thread_id,
+            trace_id=trace_id,
+            run_id=run_id,
+            timeout_ms=tenant.timeout_ms,
+            hitl_enabled=tenant.hitl,
+            max_iterations=tenant.max_iterations,
+            data_path=tenant.data_path,
+            rules_only=rules_only,
+            force_reviewer_insufficient=force_insuf,
+        )
+
+        yield (
+            "run",
+            {
+                "run_id": run_id,
+                "trace_id": trace_id,
+                "engine": engine.name,
+                "tenant_id": tenant.tenant_id,
+            },
+        )
+
+        agent_state: Dict[str, Any] = {}
+        result: Optional[Envelope] = None
+        if engine_name == "multi_agent" and hasattr(engine, "stream_run"):
+            for item in engine.stream_run(ctx):
+                kind = item[0]
+                if kind == "phase":
+                    yield (
+                        "phase",
+                        {"phase": item[1], "engine": engine.name},
+                    )
+                elif kind == "result":
+                    result, agent_state = item[1], dict(item[2] or {})
+            if result is None:
+                yield (
+                    "error",
+                    {
+                        "code": "INTERNAL",
+                        "message": "stream_run produced no result",
+                    },
+                )
+                yield ("done", {})
+                return
+        else:
+            yield ("phase", {"phase": "run", "engine": engine.name})
+            result, agent_state = _unpack_engine_result(engine.run(ctx))
+
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        result.meta.latency_ms = latency_ms
+        result.meta.timeout_ms = tenant.timeout_ms
+        result.meta.tenant_id = tenant.tenant_id
+        result.meta.thread_id = req.thread_id
+        result.meta.engine = engine.name
+        result.trace_id = trace_id
+        result.run_id = run_id
+
+        if not agent_state and result.status == RunStatus.waiting_human:
+            agent_state = {
+                "query": req.query.strip(),
+                "data_path": tenant.data_path,
+                "rules_only": rules_only,
+                "force_reviewer_insufficient": force_insuf,
+                "route": result.meta.route,
+                "citations": [c.model_dump() for c in result.citations],
+                "risks": (
+                    result.hitl.preview.risks
+                    if result.hitl and result.hitl.preview
+                    else []
+                ),
+                "draft": (result.answer or "").replace("(draft)\n", "", 1),
+                "answer": "",
+                "ok": True,
+            }
+
+        self._persist_envelope(
+            result,
+            agent_state=agent_state,
+            started_at=started_at,
+            ctx_extras={
+                "query": req.query.strip(),
+                "data_path": tenant.data_path,
+                "rules_only": rules_only,
+                "hitl_enabled": tenant.hitl,
+                "timeout_ms": tenant.timeout_ms,
+                "max_iterations": tenant.max_iterations,
+                "force_reviewer_insufficient": force_insuf,
+            },
+            created_at=started_at,
+        )
+        self._ensure_usage(result, req.query.strip())
+        self._log_envelope("chat_stream", result)
+        yield ("envelope", result.model_dump(mode="json"))
+        yield ("done", {})
 
     def hitl(self, run_id: str, body: HitlRequest) -> Envelope:
         with start_span(

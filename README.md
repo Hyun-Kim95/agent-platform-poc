@@ -77,7 +77,8 @@ Stop-Process -Id <PID> -Force
 | 9 | OTel(console) | `python scripts\smoke_obs.py` |
 | 10 | Eval 리포트 | `python scripts\run_eval.py` |
 | 11 | 로컬→PG 마이그레이션 | `python scripts\migrate_local_to_pg.py --dry-run` |
-| 12 | 얇은 UI · rating · eval | [http://127.0.0.1:8000/ui](http://127.0.0.1:8000/ui) · completed 후 rating · Load eval report |
+| 12 | 얇은 UI · rating · eval · SSE | [http://127.0.0.1:8000/ui](http://127.0.0.1:8000/ui) · stream 체크 · rating · Load eval report |
+| 13 | chat SSE 스모크 | `python scripts\smoke_chat_stream.py` |
 
 혼합 질문·타임아웃·루프:
 
@@ -197,7 +198,7 @@ uvicorn app.main:app --port 8000
 
 ## Known limitations
 
-- 프론트는 React 없음. PoC용 정적 UI만 `/ui` (Auth·스트리밍 없음). rating=`POST /v1/feedback`, eval 조회=`GET /v1/eval/report`
+- 프론트는 React 없음. PoC용 정적 UI만 `/ui` (Auth 없음). chat SSE=`POST /v1/chat/stream`(노드 phase), rating=`POST /v1/feedback`, eval=`GET /v1/eval/report`. HITL resume·토큰 스트림은 비SSE
 - `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl`
 - HITL warm resume: LangGraph checkpointer (Postgres 또는 `data/checkpoints.db`). 재시작 후에도 `thread_id=run_id`로 resume 가능
 - RunStore `agent_state` cold path는 체크포인트가 없을 때의 fallback

@@ -32,8 +32,8 @@ RunResult = Tuple[Envelope, Dict[str, Any]]
 class MultiAgentEngine:
     name = "multi_agent"
 
-    def run(self, ctx: EngineContext) -> RunResult:
-        initial: AgentState = {
+    def _initial_state(self, ctx: EngineContext) -> AgentState:
+        return {
             "query": ctx.query,
             "data_path": ctx.data_path,
             "rules_only": ctx.rules_only,
@@ -47,15 +47,11 @@ class MultiAgentEngine:
             "risks": [],
             "ok": True,
         }
-        graph = get_compiled_graph()
-        cfg = thread_config(ctx.run_id)
-        graph.invoke(initial, cfg)
-        snap = graph.get_state(cfg)
-        values = dict(snap.values or {})
 
+    def _result_from_snap(self, ctx: EngineContext, snap: Any) -> RunResult:
+        values = dict(snap.values or {})
         if snap.next:
             return self._waiting_envelope(ctx, values), values
-
         if values.get("error_code") == "MAX_ITERATIONS":
             return (
                 self._failed_envelope(
@@ -70,11 +66,30 @@ class MultiAgentEngine:
                 ),
                 values,
             )
-
         return (
             self._to_envelope(ctx, values, RunStatus.completed, hitl=None),
             values,
         )
+
+    def run(self, ctx: EngineContext) -> RunResult:
+        graph = get_compiled_graph()
+        cfg = thread_config(ctx.run_id)
+        graph.invoke(self._initial_state(ctx), cfg)
+        return self._result_from_snap(ctx, graph.get_state(cfg))
+
+    def stream_run(self, ctx: EngineContext):
+        """Yield ("phase", name) then ("result", Envelope, agent_state)."""
+        graph = get_compiled_graph()
+        cfg = thread_config(ctx.run_id)
+        for chunk in graph.stream(
+            self._initial_state(ctx), cfg, stream_mode="updates"
+        ):
+            if not isinstance(chunk, dict):
+                continue
+            for node_name in chunk.keys():
+                yield ("phase", str(node_name))
+        env, state = self._result_from_snap(ctx, graph.get_state(cfg))
+        yield ("result", env, state)
 
     def resume(
         self,

@@ -307,3 +307,26 @@ button:disabled {
   overflow-x: auto;
   max-height: 22rem;
 }
+
+.stream-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.stream-log {
+  margin: 0.65rem 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #f7faf8;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  max-height: 10rem;
+  overflow-y: auto;
+}

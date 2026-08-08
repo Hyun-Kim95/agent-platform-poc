@@ -37,6 +37,8 @@
     loadEval: document.getElementById("load-eval"),
     evalSummary: document.getElementById("eval-summary"),
     evalMarkdown: document.getElementById("eval-markdown"),
+    useStream: document.getElementById("use-stream"),
+    streamLog: document.getElementById("stream-log"),
   };
 
   function setBusy(busy) {
@@ -274,6 +276,87 @@
     return data;
   }
 
+  function appendStreamLog(line) {
+    els.streamLog.classList.remove("hidden");
+    els.streamLog.textContent +=
+      (els.streamLog.textContent ? "\n" : "") + line;
+  }
+
+  function resetStreamLog() {
+    els.streamLog.textContent = "";
+    els.streamLog.classList.add("hidden");
+  }
+
+  function parseSseFrames(buffer, onEvent) {
+    var parts = buffer.split("\n\n");
+    var rest = parts.pop();
+    parts.forEach(function (frame) {
+      var ev = null;
+      var dataRaw = null;
+      frame.split("\n").forEach(function (line) {
+        if (line.indexOf("event:") === 0) ev = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataRaw = line.slice(5).trim();
+      });
+      if (ev && dataRaw != null) {
+        var data = {};
+        try {
+          data = JSON.parse(dataRaw);
+        } catch (e) {
+          data = { raw: dataRaw };
+        }
+        onEvent(ev, data);
+      }
+    });
+    return rest;
+  }
+
+  async function sendChatStream(body) {
+    resetStreamLog();
+    appendStreamLog("→ POST /v1/chat/stream");
+    var res = await fetch("/v1/chat/stream", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok || !res.body) {
+      throw new Error("HTTP " + res.status + " (stream)");
+    }
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = "";
+    var finalEnv = null;
+    while (true) {
+      var step = await reader.read();
+      if (step.done) break;
+      buf += decoder.decode(step.value, { stream: true });
+      buf = parseSseFrames(buf, function (ev, data) {
+        if (ev === "run") {
+          appendStreamLog(
+            "run " + (data.run_id || "") + " · " + (data.engine || "")
+          );
+        } else if (ev === "phase") {
+          appendStreamLog("phase: " + (data.phase || "?"));
+        } else if (ev === "envelope") {
+          finalEnv = data;
+          appendStreamLog("envelope status=" + (data.status || "?"));
+        } else if (ev === "error") {
+          appendStreamLog(
+            "error " + (data.code || "") + ": " + (data.message || "")
+          );
+        } else if (ev === "done") {
+          appendStreamLog("done");
+        }
+      });
+    }
+    if (!finalEnv) {
+      throw new Error("stream ended without envelope");
+    }
+    applyEnvelope(finalEnv);
+  }
+
   async function sendChat() {
     state.phase = "loading";
     state.httpError = null;
@@ -291,8 +374,13 @@
       if (!body.query) {
         throw new Error("query is required");
       }
-      var env = await postJson("/v1/chat", body);
-      applyEnvelope(env);
+      if (els.useStream && els.useStream.checked) {
+        await sendChatStream(body);
+      } else {
+        resetStreamLog();
+        var env = await postJson("/v1/chat", body);
+        applyEnvelope(env);
+      }
     } catch (e) {
       state.phase = "error";
       state.envelope = e.payload && e.payload.status ? e.payload : null;
