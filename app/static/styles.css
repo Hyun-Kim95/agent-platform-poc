@@ -210,6 +210,71 @@ button:disabled {
   margin-bottom: 0.5rem;
 }
 
+.answer.md {
+  white-space: normal;
+}
+
+.answer.md h1 {
+  font-size: 1.35rem;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.answer.md h2 {
+  font-size: 1.2rem;
+  margin: 0.85rem 0 0.4rem;
+  font-weight: 600;
+}
+
+.answer.md h3 {
+  font-size: 1.05rem;
+  margin: 0.75rem 0 0.35rem;
+  font-weight: 600;
+}
+
+.answer.md h1:first-child,
+.answer.md h2:first-child,
+.answer.md h3:first-child,
+.answer.md .draft-label:first-child {
+  margin-top: 0;
+}
+
+.answer.md p {
+  margin: 0 0 0.45rem;
+}
+
+.answer.md ul {
+  margin: 0.25rem 0 0.65rem;
+  padding-left: 1.25rem;
+}
+
+.answer.md li {
+  margin: 0.2rem 0;
+}
+
+.answer.md li.sub {
+  list-style: none;
+  margin-left: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.answer.md code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: #f0ebe3;
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+}
+
+.answer.md .draft-label {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--warn);
+  margin: 0 0 0.5rem;
+}
+
 .citations {
   margin: 0.75rem 0 0;
   padding: 0;
@@ -245,6 +310,28 @@ button:disabled {
 .panel-sub {
   margin: 0 0 0.35rem;
   font-size: 1.05rem;
+}
+
+.result-block {
+  margin: 0.85rem 0 1rem;
+}
+
+.result-block > .panel-sub {
+  margin-bottom: 0.2rem;
+}
+
+.result-block > .hint {
+  margin-bottom: 0.5rem;
+}
+
+.result-block .stream-log {
+  margin-top: 0.35rem;
+}
+
+.result-block .preview,
+.result-block .answer,
+.result-block .last-feedback {
+  margin-bottom: 0;
 }
 
 .hint {

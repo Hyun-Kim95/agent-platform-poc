@@ -199,6 +199,7 @@ uvicorn app.main:app --port 8000
 ## Known limitations
 
 - 프론트는 React 없음. PoC용 정적 UI만 `/ui` (Auth 없음). chat SSE=`POST /v1/chat/stream`(노드 phase), rating=`POST /v1/feedback`, eval=`GET /v1/eval/report`. HITL resume·토큰 스트림은 비SSE
+- 웹 snippet 정리: `configs/snippet_boilerplate.txt` (`line:` / inline 정규식). 펜스는 unwrap(마커만 제거). 목록 수정 후 서버 재기동
 - `multi_agent`: LangGraph + 웹(mock/Tavily) + CSV. HITL은 interrupt + `/v1/hitl`
 - HITL warm resume: LangGraph checkpointer (Postgres 또는 `data/checkpoints.db`). 재시작 후에도 `thread_id=run_id`로 resume 가능
 - RunStore `agent_state` cold path는 체크포인트가 없을 때의 fallback

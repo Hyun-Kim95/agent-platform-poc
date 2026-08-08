@@ -25,6 +25,8 @@
       </header>
 
       <section class="panel" aria-label="chat form">
+        <h2 class="panel-sub">질의</h2>
+        <p class="hint">POST /v1/chat 또는 /v1/chat/stream</p>
         <div class="row">
           <div>
             <label for="tenant">tenant_id</label>
@@ -59,14 +61,43 @@
           <span id="badge" class="badge idle">idle</span>
           <span id="meta"></span>
         </div>
-        <div id="stream-log" class="stream-log hidden" aria-live="polite"></div>
-        <div id="error-box" class="error-box"></div>
-        <div id="last-feedback" class="last-feedback hidden"></div>
-        <div id="preview" class="preview"></div>
-        <div id="answer" class="answer"></div>
-        <ul id="citations" class="citations"></ul>
 
-        <div id="hitl-panel" class="hidden">
+        <div id="stream-block" class="result-block hidden">
+          <h2 class="panel-sub">진행 로그 (SSE)</h2>
+          <p class="hint">stream 체크 시 노드 phase · 이벤트 순서</p>
+          <div id="stream-log" class="stream-log" aria-live="polite"></div>
+        </div>
+
+        <div id="error-box" class="error-box"></div>
+
+        <div id="feedback-block" class="result-block hidden">
+          <h2 class="panel-sub">최근 revise 피드백</h2>
+          <div id="last-feedback" class="last-feedback"></div>
+        </div>
+
+        <div id="preview-block" class="result-block hidden">
+          <h2 class="panel-sub">검토용 미리보기</h2>
+          <p class="hint">HITL 전 Data / Route / Web 요약 (잘리지 않는 요약 필드)</p>
+          <div id="preview" class="preview"></div>
+        </div>
+
+        <div id="answer-block" class="result-block hidden">
+          <h2 class="panel-sub">검토 초안 / 최종 답</h2>
+          <p class="hint">
+            waiting_human 이면 (draft), Approve 후면 최종 answer
+          </p>
+          <div id="answer" class="answer"></div>
+        </div>
+
+        <div id="citations-block" class="result-block hidden">
+          <h2 class="panel-sub">근거 (citations)</h2>
+          <p class="hint">web · data 등 출처 · link로 원문</p>
+          <ul id="citations" class="citations"></ul>
+        </div>
+
+        <div id="hitl-panel" class="result-block hidden">
+          <h2 class="panel-sub">사람 검토 (HITL)</h2>
+          <p class="hint">tenant demo · Approve / Revise / Reject</p>
           <div class="actions">
             <button type="button" id="approve">Approve</button>
             <button type="button" id="revise" class="secondary">Revise…</button>

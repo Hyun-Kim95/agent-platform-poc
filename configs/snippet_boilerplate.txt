@@ -1,0 +1,20 @@
+# Snippet boilerplate deny list (UTF-8).
+# Empty lines and # comments are ignored.
+#
+# line:<regex>  — drop the whole line if this pattern matches (re.I)
+# <regex>       — inline strip (same as inline:<regex>)
+#
+# After editing: restart uvicorn (patterns are cached on first use).
+
+line:^\s*skip to content\s*$
+line:^\s*press the .+\s*$
+line:^\s*braze system status\s*$
+line:^\s*open the document menu.*$
+line:^\s*close the menu\s*$
+line:^\s*expand(?:ing)? the sidebar\s*$
+line:^\s*without expanding the sidebar\s*$
+
+\bskip to content\b
+press the (?:down arrow key|'esc'|"esc"|esc key)[^.\n]{0,120}\.?
+open the document menu[^.\n]{0,80}\.?
+close the menu[^.\n]{0,40}\.?

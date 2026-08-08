@@ -39,7 +39,104 @@
     evalMarkdown: document.getElementById("eval-markdown"),
     useStream: document.getElementById("use-stream"),
     streamLog: document.getElementById("stream-log"),
+    streamBlock: document.getElementById("stream-block"),
+    feedbackBlock: document.getElementById("feedback-block"),
+    previewBlock: document.getElementById("preview-block"),
+    answerBlock: document.getElementById("answer-block"),
+    citationsBlock: document.getElementById("citations-block"),
   };
+
+  function setBlockVisible(blockEl, visible) {
+    if (!blockEl) return;
+    if (visible) blockEl.classList.remove("hidden");
+    else blockEl.classList.add("hidden");
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function inlineMd(s) {
+    s = escapeHtml(s);
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    return s;
+  }
+
+  /** PoC subset: headings, lists, paragraphs. HTML escaped first. */
+  function renderMarkdown(md) {
+    var lines = String(md || "").replace(/\r\n/g, "\n").split("\n");
+    var html = [];
+    var i = 0;
+    var listOpen = false;
+
+    function closeList() {
+      if (listOpen) {
+        html.push("</ul>");
+        listOpen = false;
+      }
+    }
+
+    if (lines[0] === "(draft)") {
+      html.push('<p class="draft-label">(draft)</p>');
+      i = 1;
+      if (lines[1] === "") i = 2;
+    }
+
+    for (; i < lines.length; i++) {
+      var line = lines[i];
+      var m;
+      if (/^\s*$/.test(line)) {
+        closeList();
+        continue;
+      }
+      m = /^(#{1,3})\s+(.+)$/.exec(line);
+      if (m) {
+        closeList();
+        var level = m[1].length;
+        html.push(
+          "<h" + level + ">" + inlineMd(m[2]) + "</h" + level + ">"
+        );
+        continue;
+      }
+      m = /^[-*]\s+(.+)$/.exec(line);
+      if (m) {
+        if (!listOpen) {
+          html.push("<ul>");
+          listOpen = true;
+        }
+        html.push("<li>" + inlineMd(m[1]) + "</li>");
+        continue;
+      }
+      if (listOpen && /^\s{2,}\S/.test(line)) {
+        html.push(
+          '<li class="sub">' + inlineMd(line.trim()) + "</li>"
+        );
+        continue;
+      }
+      closeList();
+      html.push("<p>" + inlineMd(line) + "</p>");
+    }
+    closeList();
+    return html.join("\n");
+  }
+
+  function setAnswerMarkdown(text) {
+    var t = text || "";
+    if (!t.trim()) {
+      els.answer.innerHTML = "";
+      els.answer.classList.remove("md");
+      setBlockVisible(els.answerBlock, false);
+      return;
+    }
+    els.answer.classList.add("md");
+    els.answer.innerHTML = renderMarkdown(t);
+    setBlockVisible(els.answerBlock, true);
+  }
 
   function setBusy(busy) {
     els.send.disabled = busy;
@@ -66,10 +163,10 @@
       type.textContent = c.type || "?";
       li.appendChild(type);
       var title = c.title || c.ref || "(no title)";
-      li.appendChild(document.createTextNode(shortText(title, 100)));
+      li.appendChild(document.createTextNode(shortText(title, 80)));
       if (c.snippet) {
         li.appendChild(
-          document.createTextNode(" — " + shortText(c.snippet, 120))
+          document.createTextNode(" — " + shortText(c.snippet, 80))
         );
       }
       if (c.ref && /^https?:\/\//.test(c.ref)) {
@@ -91,11 +188,11 @@
     var fb = hitl.last_feedback || preview.last_feedback || "";
     var tgt = hitl.last_revise_target || preview.last_revise_target || "";
     if (!fb) {
-      els.lastFeedback.classList.add("hidden");
       els.lastFeedback.textContent = "";
+      setBlockVisible(els.feedbackBlock, false);
       return;
     }
-    els.lastFeedback.classList.remove("hidden");
+    setBlockVisible(els.feedbackBlock, true);
     els.lastFeedback.textContent =
       "Last revise feedback: " +
       fb +
@@ -106,6 +203,7 @@
     var preview = env.hitl && env.hitl.preview ? env.hitl.preview : null;
     if (!preview) {
       els.preview.textContent = "";
+      setBlockVisible(els.previewBlock, false);
       return;
     }
     var parts = [];
@@ -125,6 +223,7 @@
       parts.push("risks: " + risks);
     }
     els.preview.textContent = parts.join("\n");
+    setBlockVisible(els.previewBlock, parts.length > 0);
   }
 
   function syncRatingButtons() {
@@ -160,10 +259,19 @@
       els.hitlPanel.classList.add("hidden");
       els.ratingPanel.classList.add("hidden");
       els.preview.textContent = "";
-      els.answer.textContent = "";
+      els.answer.innerHTML = "";
+      els.answer.classList.remove("md");
       els.meta.textContent = "";
-      els.lastFeedback.classList.add("hidden");
+      els.lastFeedback.textContent = "";
       els.citations.innerHTML = "";
+      setBlockVisible(
+        els.streamBlock,
+        !!(els.streamLog.textContent || "").trim()
+      );
+      setBlockVisible(els.feedbackBlock, false);
+      setBlockVisible(els.previewBlock, false);
+      setBlockVisible(els.answerBlock, false);
+      setBlockVisible(els.citationsBlock, false);
       var msg = state.httpError || "Unknown error";
       if (state.envelope && state.envelope.error) {
         msg =
@@ -189,8 +297,12 @@
 
     renderLastFeedback(env);
     renderPreview(env);
-    els.answer.textContent = env.answer || "";
+    setAnswerMarkdown(env.answer || "");
     renderCitations(env.citations);
+    setBlockVisible(
+      els.citationsBlock,
+      (env.citations || []).length > 0
+    );
 
     if (state.phase === "waiting_human") {
       els.hitlPanel.classList.remove("hidden");
@@ -277,14 +389,14 @@
   }
 
   function appendStreamLog(line) {
-    els.streamLog.classList.remove("hidden");
+    setBlockVisible(els.streamBlock, true);
     els.streamLog.textContent +=
       (els.streamLog.textContent ? "\n" : "") + line;
   }
 
   function resetStreamLog() {
     els.streamLog.textContent = "";
-    els.streamLog.classList.add("hidden");
+    setBlockVisible(els.streamBlock, false);
   }
 
   function parseSseFrames(buffer, onEvent) {

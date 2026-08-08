@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from app.engines.multi_agent.state import AgentState
-from app.engines.multi_agent.text_sanitize import sanitize_snippet
+from app.engines.multi_agent.text_sanitize import (
+    sanitize_snippet,
+    short_url_host,
+)
+
+_SKIP_SNIPS = frozenset({"(encoding unclear)", "(snippet cleaned)", ""})
 
 
 def node_synthesize(state: AgentState) -> AgentState:
@@ -33,10 +38,14 @@ def node_synthesize(state: AgentState) -> AgentState:
         else:
             for h in hits:
                 title = sanitize_snippet(h.get("title") or "untitled", 80)
-                url = h.get("url") or ""
-                lines.append("- {0} ({1})".format(title, url))
-                snip = sanitize_snippet(h.get("snippet") or "", 100)
-                if snip and snip != "(encoding unclear)":
+                host = short_url_host(h.get("url") or "")
+                if host:
+                    lines.append("- {0} · {1}".format(title, host))
+                else:
+                    lines.append("- {0}".format(title))
+                # One short line only (R3/R4); full URL stays on citation.ref
+                snip = sanitize_snippet(h.get("snippet") or "", 80)
+                if snip not in _SKIP_SNIPS:
                     lines.append("  {0}".format(snip))
 
     risks = state.get("risks") or []
